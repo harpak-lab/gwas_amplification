@@ -1,0 +1,298 @@
+---
+title: "Decision Rule Derivation with Fixed Covariates"
+author: "Eric Weine"
+date: "6/17/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Setup
+
+As usual, assume that we have observations
+
+\begin{equation*}
+y_{1}, ..., y_{n}, y_{n+1}, ..., y_{n+m}
+\end{equation*}
+
+where the first $n$ observations are from environment 0 and the final $m$ observations are from environment 1. We assume each $y_{i}$ from environment 0 is drawn independently as 
+
+\begin{equation*}
+y_{i} \sim N(\beta_{0}^{(0)} + \beta_{1}^{(0)}g_{i}, \sigma_{(0)}^{2})
+\end{equation*}
+
+and each $y_{i}$ from environment 1 is drawn independently as 
+
+\begin{equation*}
+y_{i} \sim N(\beta_{0}^{(1)} + \beta_{1}^{(1)}g_{i}, \sigma_{(1)}^{2}),
+\end{equation*}
+
+where $g_{i}$ is the genotype of the $i^{th}$ individual. Let $\overrightarrow{g}_{i}$ be the vector of genotypes in environment $i$, and let $f_{i}$ be the minor allele frequency in environment $i$. In this context we will consider each $g_{i}$ to be fixed.
+
+## Separate Models
+
+First, suppose that we estimate a regression separately using the data in environment $0$ and environment $1$. Then, we derive separate estimates $\hat{\beta}_{1}^{(0)}$ and $\hat{\beta}_{1}^{(1)}$.
+
+It is a standard result that $\hat{\beta}_{1}^{(0)}$ and $\hat{\beta}_{1}^{(1)}$ are unbiased estimates and
+
+\begin{align*}
+Var(\hat{\beta}_{1}^{(0)}) &= \frac{\sigma_{(0)}^{2}}{\sum_{i = 1}^{n}(g_{i} - \bar{g}^{(0)})^{2}}\\
+Var(\hat{\beta}_{1}^{(1)}) &= \frac{\sigma_{(1)}^{2}}{\sum_{i = n+1}^{n+m}(g_{i} - \bar{g}^{(1)})^{2}}
+\end{align*}
+
+## Combined Model
+
+## Expectation
+
+\begin{align*}
+E\Big[\hat{\beta}_{1}^{(c)}\Big] &= E\Bigg[\frac{\sum_{i = 1}^{n+m}(g_{i} - \bar{g})(y_{i} - \bar{y})}{\sum_{i = 1}^{n+m}(g_{i} - \bar{g})^{2}}\Bigg]\\
+&= E\Bigg[ \frac{\sum_{i = 1}^{n+m}(g_{i} - \bar{g})y_{i} - \bar{y}\sum_{i = 1}^{n+m}(g_{i} - \bar{g})}{\sum_{i = 1}^{n+m}(g_{i} - \bar{g})^{2}} \Bigg]\\
+&= E\Bigg[ \frac{\sum_{i = 1}^{n+m}(g_{i} - \bar{g})y_{i}}{\sum_{i = 1}^{n+m}(g_{i} - \bar{g})^{2}} \Bigg] \textrm{ (since $\sum_{i = 1}^{n+m}(g_{i} - \bar{g}) = 0$)}\\
+&= \frac{ \sum_{i = 1}^{n}(g_{i} - \bar{g})E[y_{i}] + \sum_{i = n + 1}^{n + m}(g_{i} - \bar{g})E[y_{i}] }{\sum_{i = 1}^{n+m}(g_{i} - \bar{g})^{2}}\\
+&= \frac{ \sum_{i = 1}^{n}(g_{i} - \bar{g})(\beta_{0}^{(0)} + \beta_{1}^{(0)}g_{i}) + \sum_{i = n + 1}^{n + m}(g_{i} - \bar{g})(\beta_{0}^{(1)} + \beta_{1}^{(1)}g_{i}) }{\sum_{i = 1}^{n+m}(g_{i} - \bar{g})^{2}}\\
+&= \frac{ \beta_{0}^{(0)}\sum_{i = 1}^{n}(g_{i} - \bar{g}) + \beta_{1}^{(0)}\sum_{i = 1}^{n}(g_{i} - \bar{g})g_{i} + \beta_{0}^{(1)}\sum_{i = n+1}^{n+m}(g_{i} - \bar{g}) + \beta_{1}^{(1)}\sum_{i = n+1}^{n+m}(g_{i} - \bar{g})g_{i}}{\sum_{i = 1}^{n+m}(g_{i} - \bar{g})^{2}}\\
+\end{align*}
+
+## Variance
+
+\begin{align*}
+Var\Big[\hat{\beta}_{1}^{(c)}\Big] &= Var\Bigg[ \frac{\sum_{i = 1}^{n+m}(g_{i} - \bar{g})y_{i}}{\sum_{i = 1}^{n+m}(g_{i} - \bar{g})^{2}} \Bigg] \textrm{ (By the argument above)}\\
+&= \frac{Var\Big[\sum_{i = 1}^{n+m}(g_{i} - \bar{g})y_{i}\Big]}{\big(\sum_{i = 1}^{n+m}(g_{i} - \bar{g})^{2}\big)^{2}}\\
+&= \frac{\sum_{i = 1}^{n+m}Var\big[(g_{i} - \bar{g})y_{i}\big]}{\big(\sum_{i = 1}^{n+m}(g_{i} - \bar{g})^{2}\big)^{2}} \textrm{ (Since each $y_{i}$ is independent)}\\
+&= \frac{\sum_{i = 1}^{n+m}(g_{i} - \bar{g})^{2}Var[y_{i}]}{\big(\sum_{i = 1}^{n+m}(g_{i} - \bar{g})^{2}\big)^{2}} \\
+&= \frac{\sum_{i = 1}^{n}(g_{i} - \bar{g})^{2}Var[y_{i}] + \sum_{i = n+1}^{n+m}(g_{i} - \bar{g})^{2}Var[y_{i}]}{\big(\sum_{i = 1}^{n+m}(g_{i} - \bar{g})^{2}\big)^{2}}\\
+&= \frac{\sum_{i = 1}^{n}(g_{i} - \bar{g})^{2}\sigma_{(0)}^{2} + \sum_{i = n+1}^{n+m}(g_{i} - \bar{g})^{2}\sigma_{(1)}^{2}}{\big(\sum_{i = 1}^{n+m}(g_{i} - \bar{g})^{2}\big)^{2}}\\
+\end{align*}
+
+## Decision Rule
+
+To decide which estimator to use, we compare the MSE of each estimator. 
+
+For environment $0$, we should use the separate estimator (GxE model) if and only if the following condition is met:
+
+\begin{align*}
+& MSE(\hat{\beta}_{1}^{(0)}, \beta_{1}^{(0)}) < MSE(\hat{\beta}_{1}^{(c)}, \beta_{1}^{(0)})\\
+\iff & Bias(\hat{\beta}_{1}^{(0)}, \beta_{1}^{(0)})^{2} + Var(\hat{\beta}_{1}^{(0)}) < Bias(\hat{\beta}_{1}^{(c)}, \beta_{1}^{(0)})^{2} + Var(\hat{\beta}_{1}^{(c)})\\
+\iff & \frac{\sigma_{(0)}^{2}}{\sum_{i = 1}^{n}(g_{i} - \bar{g}^{(1)})^{2}} < \Bigg(\beta_{1}^{(0)} - \frac{ \beta_{0}^{(0)}\sum_{i = 1}^{n}(g_{i} - \bar{g}) + \beta_{1}^{(0)}\sum_{i = 1}^{n}(g_{i} - \bar{g})g_{i} + \beta_{0}^{(1)}\sum_{i = n+1}^{n+m}(g_{i} - \bar{g}) + \beta_{1}^{(1)}\sum_{i = n+1}^{n+m}(g_{i} - \bar{g})g_{i}}{\sum_{i = 1}^{n+m}(g_{i} - \bar{g})^{2}}\Bigg)^{2} + \frac{\sum_{i = 1}^{n}(g_{i} - \bar{g})^{2}\sigma_{(0)}^{2} + \sum_{i = n+1}^{n+m}(g_{i} - \bar{g})^{2}\sigma_{(1)}^{2}}{\big(\sum_{i = 1}^{n+m}(g_{i} - \bar{g})^{2}\big)^{2}}
+\end{align*}
+
+## Prediction Error
+
+Suppose that we have an out of sample observation $g_{0}$ in environment $e$ and we would like to know our expected squared prediction error in estimating $y_{0}$ when using the estimator $\hat{f}_{e}(g_{0})$. We can write this as
+
+\begin{align*}
+E\bigg[\big(y_{0} - \hat{f}_{e}(g_{0})\big)^{2}\bigg] &= Var(y_{0} - \hat{f}_{e}(g_{0})) + E[y_{0} - \hat{f}_{e}(g_{0})]^{2}\\
+&= Var(y_{0}) + Var(\hat{f}_{e}(g_{0})) + E[y_{0} - \hat{f}_{e}(g_{0})]^{2}\\
+&= \sigma^{2}_{(e)} + Var(\hat{f}_{e}(g_{0})) + Bias(\hat{f}_{e}(g_{0}), f_{e}(g_{0}))^{2}\\
+&= \sigma^{2}_{(e)} + MSE(\hat{f}_{e}, f_{e})
+\end{align*}
+
+Now, if we were to consider sampling an individual from a population with $m$ total individuals with $n_{e}$ individuals in environment $e$, then our expected squared prediction error, assuming there are $k$ total environments, is 
+
+\begin{equation*}
+\sum_{e = 1}^{k} \frac{n_{e}}{m} \big(\sigma^{2}_{(e)} + MSE(\hat{f}_{e}, f_{e})\big)
+\end{equation*}
+
+## Comparing Fixed and Random Covariate Estimates
+
+Given that we've now switched to fixed covariates, it's important to evaluate if treating the covariates as fixed is substantially underestimating the variance of the combined estimator. Below, I simulate a two environment sample with an equal number of individuals in each environment but different minor allele frequencies. Then, I estimate the variance using the fixed calculation with one sample and with the simulation. Clearly, the fixed estimate gets better and better with a bigger sample size. This also serves as a confirmation that the theoretical calculation done above is correct.
+
+```{r, eval=FALSE}
+simulate_two_env_df <- function(
+  n_e0,
+  n_e1,
+  sigma_e0,
+  sigma_e1,
+  fx_e0,
+  int_e0,
+  fx_e1,
+  int_e1,
+  maf_e0,
+  maf_e1
+) {
+
+  g_e0 <- sample(
+    x=c(0, 1, 2),
+    size=n_e0,
+    prob=c((1 - maf_e0) ^ 2, 2 * maf_e0 * (1 - maf_e0), maf_e0 ^ 2),
+    replace = TRUE
+  )
+
+  g_e1 <- sample(
+    x=c(0, 1, 2),
+    size=n_e1,
+    prob=c((1 - maf_e1) ^ 2, 2 * maf_e1 * (1 - maf_e1), maf_e1 ^ 2),
+    replace = TRUE
+  )
+
+  y_e0 <- int_e0 + g_e0 * fx_e0 + rnorm(n = n_e0, sd = sigma_e0)
+  y_e1 <- int_e1 + g_e1 * fx_e1 + rnorm(n = n_e1, sd = sigma_e1)
+
+  sim_df <- data.frame(
+    y = c(y_e0, y_e1),
+    g = c(g_e0, g_e1),
+    e = c(rep("e0", n_e0), rep("e1", n_e1))
+  )
+
+  return(sim_df)
+
+}
+
+get_comb_reg_est_gwas <- function(gwas_df) {
+  
+  lm_comb <- lm(y ~ g, data = gwas_df)
+  g_est_comb <- coef(summary(lm_comb))['g', 'Estimate']
+  return(g_est_comb)
+  
+}
+
+simulate_g_var_effect_two_env <- function(
+  num_sims, 
+  n_e0,
+  n_e1,
+  sigma_e0,
+  sigma_e1,
+  fx_e0,
+  int_e0,
+  fx_e1,
+  int_e1,
+  maf_e0,
+  maf_e1
+) {
+
+ g_est_vec <- numeric(num_sims) 
+ 
+ for (i in 1:num_sims) {
+   
+   sim_two_env_gwas_df <- simulate_two_env_df(
+      n_e0,
+      n_e1,
+      sigma_e0,
+      sigma_e1,
+      fx_e0,
+      int_e0,
+      fx_e1,
+      int_e1,
+      maf_e0,
+      maf_e1
+   )
+   
+   sim_est <- get_comb_reg_est_gwas(sim_two_env_gwas_df)
+   
+   g_est_vec[i] <- sim_est
+   
+ }
+  
+ est_var <- var(g_est_vec)
+ return(est_var)
+ 
+}
+
+get_theo_fixed_cov_two_env_var <- function(
+  n_e0,
+  n_e1,
+  sigma_e0,
+  sigma_e1,
+  g
+) {
+  
+  g_bar <- mean(g)
+  g_0 <- g[1:n_e0]
+  g_1 <- g[(n_e0 + 1):n_e1]
+  
+  theo_var <- ((sigma_e0 ^ 2) * sum((g_0 - g_bar) ^ 2) + (sigma_e1 ^ 2) * sum((g_1 - g_bar) ^ 2)) / (sum((g - g_bar) ^ 2)) ^ 2
+  return(theo_var)
+  
+}
+```
+
+```{r, eval=FALSE}
+theo_est_vec <- c()
+sim_est_vec <- c()
+maf_e0 <- .4
+maf_e1 <- .3
+sigma_e0 <- 1
+sigma_e1 <- 1
+int_e0 <- .45
+int_e1 <- 0
+fx_e0 <- .25
+fx_e1 <- -.1
+
+n_e0_grid <- seq(50, 2500, 50)
+
+for(n_e0 in n_e0_grid) {
+  
+  print(n_e0)
+  n_e1 <- n_e0
+  
+  g_e0 <- sample(
+    x=c(0, 1, 2),
+    size=n_e0,
+    prob=c((1 - maf_e0) ^ 2, 2 * maf_e0 * (1 - maf_e0), maf_e0 ^ 2),
+    replace = TRUE
+  )
+
+  g_e1 <- sample(
+    x=c(0, 1, 2),
+    size=n_e1,
+    prob=c((1 - maf_e1) ^ 2, 2 * maf_e1 * (1 - maf_e1), maf_e1 ^ 2),
+    replace = TRUE
+  )
+  
+  g <- c(g_e0, g_e1)
+  
+  theo_est <- get_theo_fixed_cov_two_env_var(
+    n_e0,
+    n_e1,
+    sigma_e0,
+    sigma_e1,
+    g
+  )
+  
+  sim_est <- simulate_g_var_effect_two_env(
+    100, 
+    n_e0 = n_e0,
+    n_e1 = n_e1,
+    sigma_e0 = sigma_e0,
+    sigma_e1 = sigma_e1,
+    fx_e0 = fx_e0,
+    int_e0 = int_e0,
+    fx_e1 = fx_e1,
+    int_e1 = int_e1,
+    maf_e0 = maf_e0,
+    maf_e1 = maf_e1
+  )
+  
+  theo_est_vec <- c(theo_est_vec, theo_est)
+  sim_est_vec <- c(sim_est_vec, sim_est)
+  
+}
+
+sim_est_theo_comp_df <- data.frame(
+  n = c(n_e0_grid, n_e0_grid), 
+  est_type = c(rep("theo", length(n_e0_grid)), rep("sim", length(n_e0_grid))),
+  est = c(theo_est_vec, sim_est_vec)
+)
+```
+
+```{r, echo=FALSE}
+sim_est_theo_comp_df <- readr::read_rds("rds_data/var_two_env_df.rds")
+```
+
+
+```{r, echo=FALSE}
+library(ggplot2)
+ggplot(data = sim_est_theo_comp_df, aes(x = n, y = est, color = est_type)) +
+  geom_line() + 
+  ylab("Variance")
+```
+
+## Next Steps for Project
+
+(1) Evaluate single site decision rule at realistic values. For instance, given sampling errors in both environments, how different do the effect sizes need to be between environments in order for it to be worth it to use a GxE model?
+(2) Under polygenic amplification of a fixed magnitude at some proportion of sites, evaluate the performance of the additive model, the GxE model, and the STAN model previously written (or perhaps some frequentist version of it using the EM algorithm). I think doing theoretical work here seems very difficult because the performance of the stan model is contingent upon its ability to classify variants into the correct category (either amplified in one environment or the same across environments).
+(3) Under more complex schemes of polygenic amplification, evaluate the performance of the additive model, the GxE model, and the MASH model.
+
+
