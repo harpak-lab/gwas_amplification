@@ -1,0 +1,194 @@
+---
+title: "Simulation EDA"
+author: "Eric Weine"
+date: "6/29/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+source("simulation.R", local = knitr::knit_global())
+```
+
+```{r, include=FALSE}
+set.seed(1)
+library(ggplot2)
+'%>%' <- dplyr::'%>%'
+```
+
+```{r}
+male_df <- readr::read_tsv(file = 'data/male_all.systolicBP_auto.glm.linear', n_max = 50000)
+female_df <- readr::read_tsv(file = 'data/female_all.systolicBP_auto.glm.linear', n_max = 50000)
+```
+
+Now, I want to be able to determine the theoretical sampling noise given the number of observations.
+
+
+```{r}
+get_theo_obs_noise <- function(se, n, maf) {
+  
+  sqrt((se ^ 2) * (n + 1) * 2 * maf * (1 - maf))
+  
+}
+
+get_sep_model_mse <- function(sigma, g) {
+  
+  ssg <- sum((g - mean(g)) ^ 2)
+  mse <- (sigma ^ 2) / ssg
+  return(mse)
+  
+}
+
+get_comb_model_mse <- function(
+  fx_e0,
+  fx_e1, 
+  int_e0,
+  int_e1,
+  sigma_e0,
+  sigma_e1,
+  g_e0,
+  g_e1,
+  error_ref = "e1"
+) {
+  
+  g <- c(g_e0, g_e1)
+  g_mean <- mean(g)
+  ssg_e0 <- sum((g_e0 - g_mean) ^ 2)
+  ssg_e1 <- sum((g_e1 - g_mean) ^ 2)
+  ssg <- sum((g - g_mean) ^ 2)
+  
+  variance <- ((sigma_e0 ^ 2) * ssg_e0 + (sigma_e1 ^ 2) * ssg_e1) / (ssg ^ 2)
+  
+  ssg_slope_e0 <- sum((g_e0 - g_mean) * g_e0)
+  ssg_slope_e1 <- sum((g_e1 - g_mean) * g_e1)
+  
+  reg_est <- (int_e0 * ssg_e0 + int_e1 * ssg_e1 + fx_e0 * ssg_slope_e0 + fx_e1 * ssg_slope_e1) / ssg
+  
+  if (error_ref == "e1") {
+    
+    bias <- reg_est - fx_e1
+    
+  } else if (error_ref == "e1") {
+    
+    bias <- reg_est - fx_e0
+    
+  }
+  
+  mse <- bias ^ 2 + variance
+  return(mse)
+  
+}
+
+simulate_fx_var_dec_rule_1_site <- function(
+  n_e0,
+  n_e1,
+  se_grid,
+  fx_diff_grid,
+  maf_e0 = .4,
+  maf_e1 = .4,
+  int_e0 = 0,
+  int_e1 = 0,
+  sims_per_iter = 10
+) {
+  
+  sim_df <- expand.grid(fx_diff_grid, se_grid)
+  colnames(sim_df) <- c("fx_diff", "se")
+  
+  mse_sep_vec <- numeric(nrow(sim_df))
+  mse_comb_vec <- numeric(nrow(sim_df))
+  
+  for (i in 1:nrow(sim_df)) {
+    
+    print(glue::glue("Performing simulation {i} of {nrow(sim_df)}"))
+    
+    mse_sep_iter_vec <- numeric(sims_per_iter)
+    mse_comb_iter_vec <- numeric(sims_per_iter)
+    
+    sigma_e0 <- get_theo_obs_noise(sim_df$se[i], n_e0, maf_e0)
+    sigma_e1 <- get_theo_obs_noise(sim_df$se[i], n_e1, maf_e1)
+    
+    for(j in 1:sims_per_iter) {
+    
+      g_e0 <- rbinom(n = n_e0, size = 2, prob = maf_e0)
+      g_e1 <- rbinom(n = n_e1, size = 2, prob = maf_e1)
+      
+      mse_sep_iter_vec[j] <- get_sep_model_mse(sigma_e1, g_e1)
+      
+      mse_comb_iter_vec[j] <- get_comb_model_mse(
+                                fx_e0 = 0, 
+                                fx_e1 = sim_df$fx_diff[i], 
+                                int_e0 = int_e0,
+                                int_e1 = int_e1,
+                                sigma_e0 = sigma_e0,
+                                sigma_e1 = sigma_e1,
+                                g_e0 = g_e0,
+                                g_e1 = g_e1
+                            )
+      
+    }
+    
+    mse_sep_vec[i] <- mean(mse_sep_iter_vec)
+    mse_comb_vec[i] <- mean(mse_comb_iter_vec)
+    
+  }
+  
+  sim_df$mse_sep <- mse_sep_vec
+  sim_df$mse_comb <- mse_comb_vec
+  return(sim_df)
+  
+}
+```
+
+Now, I want to run a realistic simulation on some values here
+
+```{r}
+sim_test <- simulate_fx_var_dec_rule_1_site(
+  n_e0 = 1.5e05,
+  n_e1 = 1.5e05,
+  se_grid = seq(from = .05, to = 1.5, by = .05),
+  fx_diff_grid = seq(from = 0, to = 1, by = .05),
+  maf_e0 = .4,
+  maf_e1 = .4,
+  int_e0 = 0,
+  int_e1 = 0,
+  sims_per_iter = 25
+)
+```
+
+```{r}
+sim_test <- sim_test %>%
+  dplyr::mutate(mse_diff = mse_comb - mse_sep)
+```
+
+
+It seems like I actually identified an interesting set of cases. If I make a plot I think that I will be able to see where the decision boundary lies. 
+
+```{r}
+ggplot(data = sim_test, aes(x = fx_diff, y = se, fill = mse_diff)) +
+  geom_tile() +
+  scale_fill_gradient2() +
+  geom_segment(aes(x = 0.05, y = 0.0407894, xend = 1, yend = 0.703289), linetype = "dashed")
+```
+Should we expect to see effect size differences this large?
+
+```{r}
+female_df <- female_df %>% 
+  dplyr::select(ID, BETA, SE) %>%
+  dplyr::rename(beta_f = BETA, se_f = SE)
+
+male_df <- male_df %>% 
+  dplyr::select(ID, BETA, SE) %>%
+  dplyr::rename(beta_m = BETA, se_m = SE)
+
+both_sex_df <- male_df %>% dplyr::inner_join(female_df, by = c("ID" = "ID"))
+
+both_sex_df <- both_sex_df %>%
+  dplyr::mutate(fx_diff = abs(beta_m - beta_f))
+```
+
+```{r}
+plot(density(both_sex_df$fx_diff, from = 0, to = 3))
+```
+
+It seems that for the vast majority of variants we won't even get anything close to this. In general, it makes sense why the combined model does better.
+
