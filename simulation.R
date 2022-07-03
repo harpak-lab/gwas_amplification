@@ -294,6 +294,15 @@ gwas_mse_2env <- function(Bhat, X) {
 
 }
 
+generate_2env_fx_ecdf <- function(n, fx_vec, e1_amp = 1) {
+
+  fx_samp_e0 <- sample(x = fx_vec, size = n, replace = TRUE)
+  fx_samp_e1 <- e1_amp * fx_samp_e0
+  fx_mat <- matrix(data = c(fx_samp_e0, fx_samp_e1), nrow = n, ncol = 2)
+  return(fx_mat)
+
+}
+
 #' Simulate MSE of Different Modelling Techniques for Two Environment GWAS
 #'
 #' @param n_sims number of simulations to run
@@ -328,7 +337,10 @@ simulate_2env_gwas_mse <- function(
   n_e1,
   sigma_e0,
   sigma_e1,
-  Sigma,
+  Sigma = NULL,
+  prior = c("mash", "ecdf"),
+  fx_ecdf = NULL,
+  ecdf_e1_amp = 1,
   pi = NULL,
   s = 0.8,
   corr_range = seq(from = -1, to = 1, by = .25),
@@ -339,6 +351,7 @@ simulate_2env_gwas_mse <- function(
   maf_e1 = .4
 ) {
 
+  prior <- match.arg(prior)
   sep_mse_vec <- numeric(n_sims)
   comb_mse_vec <- numeric(n_sims)
   mash_mse_vec <- numeric(n_sims)
@@ -347,8 +360,18 @@ simulate_2env_gwas_mse <- function(
 
     print(glue::glue("Running simulation {i} of {n_sims}..."))
 
-    # generate true effects from mash model
-    fx_mat <- generate_mash_fx(n = n_snps, p = 2, Sigma = Sigma, pi = pi, s = s)
+    if (prior == "mash") {
+
+      # generate true effects from mash model
+      fx_mat <- generate_mash_fx(
+        n = n_snps, p = 2, Sigma = Sigma, pi = pi, s = s
+      )
+
+    } else if (prior == "ecdf") {
+
+      fx_mat <- generate_2env_fx_ecdf(n_snps, fx_ecdf, ecdf_e1_amp)
+
+    }
 
     # generate gwas summary statistics from true effects
     gwas_stats <- generate_2env_gwas(

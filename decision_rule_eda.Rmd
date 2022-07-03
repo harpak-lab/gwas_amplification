@@ -1,7 +1,7 @@
 ---
 title: "Simulation EDA"
 author: "Eric Weine"
-date: "6/29/2022"
+date: "7/3/2022"
 output: html_document
 ---
 
@@ -16,15 +16,12 @@ library(ggplot2)
 '%>%' <- dplyr::'%>%'
 ```
 
-```{r}
+```{r, include=FALSE}
 male_df <- readr::read_tsv(file = 'data/male_all.systolicBP_auto.glm.linear', n_max = 50000)
 female_df <- readr::read_tsv(file = 'data/female_all.systolicBP_auto.glm.linear', n_max = 50000)
 ```
 
-Now, I want to be able to determine the theoretical sampling noise given the number of observations.
-
-
-```{r}
+```{r, eval=FALSE, include=FALSE}
 get_theo_obs_noise <- function(se, n, maf) {
   
   sqrt((se ^ 2) * (n + 1) * 2 * maf * (1 - maf))
@@ -139,46 +136,62 @@ simulate_fx_var_dec_rule_1_site <- function(
 }
 ```
 
-Now, I want to run a realistic simulation on some values here
-
-```{r}
+```{r, eval=FALSE, include=FALSE}
 sim_test <- simulate_fx_var_dec_rule_1_site(
   n_e0 = 1.5e05,
   n_e1 = 1.5e05,
-  se_grid = seq(from = .05, to = 1.5, by = .05),
-  fx_diff_grid = seq(from = 0, to = 1, by = .05),
+  se_grid = seq(from = .025, to = 1, by = .025),
+  fx_diff_grid = seq(from = 0, to = 1, by = .025),
   maf_e0 = .4,
   maf_e1 = .4,
   int_e0 = 0,
   int_e1 = 0,
-  sims_per_iter = 25
+  sims_per_iter = 50
 )
+
+readr::write_rds(sim_test, "rds_data/sim_1_site_dec_rule_ukbb.rds")
 ```
 
-```{r}
+
+```{r, include=FALSE}
+sim_test <- readr::read_rds("rds_data/sim_1_site_dec_rule_ukbb.rds")
+
 sim_test <- sim_test %>%
   dplyr::mutate(mse_diff = mse_comb - mse_sep)
 ```
 
+## Single SNP Decision Rule
 
-It seems like I actually identified an interesting set of cases. If I make a plot I think that I will be able to see where the decision boundary lies. 
+Recall the decision rule derived last week:
 
-```{r}
+For environment $0$, we should use the separate estimator (GxE model) if and only if the following condition is met:
+
+\begin{align*}
+\frac{\sigma_{(0)}^{2}}{\sum_{i = 1}^{n}(g_{i} - \bar{g}^{(1)})^{2}} < & \Bigg(\beta_{1}^{(0)} - \frac{ \beta_{0}^{(0)}\sum_{i = 1}^{n}(g_{i} - \bar{g}) + \beta_{1}^{(0)}\sum_{i = 1}^{n}(g_{i} - \bar{g})g_{i} + \beta_{0}^{(1)}\sum_{i = n+1}^{n+m}(g_{i} - \bar{g}) + \beta_{1}^{(1)}\sum_{i = n+1}^{n+m}(g_{i} - \bar{g})g_{i}}{\sum_{i = 1}^{n+m}(g_{i} - \bar{g})^{2}}\Bigg)^{2} \\ & + \frac{\sum_{i = 1}^{n}(g_{i} - \bar{g})^{2}\sigma_{(0)}^{2} + \sum_{i = n+1}^{n+m}(g_{i} - \bar{g})^{2}\sigma_{(1)}^{2}}{\big(\sum_{i = 1}^{n+m}(g_{i} - \bar{g})^{2}\big)^{2}}
+\end{align*}
+
+To visualize this decision rule, I set the minor allele frequency in both environments at $.4$ and I assumed that that $\sigma_{(0)}^{2} = \sigma_{(1)}^{2}$ and that $n = m$. Then, based on the standard errors and effect sizes I saw in the UK Biobank data for systolic blood pressure, I set $\sigma$ appropriately and examined the MSE for estimating the effect in environment 0. The points in blue represent where the GxE model performs better.
+
+```{r, echo=FALSE}
 ggplot(data = sim_test, aes(x = fx_diff, y = se, fill = mse_diff)) +
   geom_tile() +
   scale_fill_gradient2() +
-  geom_segment(aes(x = 0.05, y = 0.0407894, xend = 1, yend = 0.703289), linetype = "dashed")
+  geom_segment(aes(x = .030265, y = 0.02500095, xend = 1, yend = 0.683035), linetype = "dashed") +
+  coord_fixed() +
+  ylab("Environment Specific SE") +
+  xlab(latex2exp::TeX("$|\\beta_{1}^{(0)} - \\beta_{1}^{(1)}|$"))
 ```
-Should we expect to see effect size differences this large?
 
-```{r}
+It is difficult to say how often true effect size differences arise that are large enough to justify the GxE model, but we can at least look at the distribution of observed effect size differences.
+
+```{r, echo=FALSE}
 female_df <- female_df %>% 
-  dplyr::select(ID, BETA, SE) %>%
-  dplyr::rename(beta_f = BETA, se_f = SE)
+  dplyr::select(ID, BETA, SE, P) %>%
+  dplyr::rename(beta_f = BETA, se_f = SE, p_f = P)
 
 male_df <- male_df %>% 
-  dplyr::select(ID, BETA, SE) %>%
-  dplyr::rename(beta_m = BETA, se_m = SE)
+  dplyr::select(ID, BETA, SE, P) %>%
+  dplyr::rename(beta_m = BETA, se_m = SE, p_m = P)
 
 both_sex_df <- male_df %>% dplyr::inner_join(female_df, by = c("ID" = "ID"))
 
@@ -186,9 +199,198 @@ both_sex_df <- both_sex_df %>%
   dplyr::mutate(fx_diff = abs(beta_m - beta_f))
 ```
 
-```{r}
-plot(density(both_sex_df$fx_diff, from = 0, to = 3))
+```{r, echo=FALSE}
+plot(density(both_sex_df$fx_diff, from = 0, to = 3),
+     main = latex2exp::TeX("Observed $|\\hat{\\beta}_{1}^{(m)} - \\hat{\\beta}_{1}^{(f)}|$ Systolic BP 50K Sample")
+       )
 ```
 
-It seems that for the vast majority of variants we won't even get anything close to this. In general, it makes sense why the combined model does better.
+The median environment specific standard error for both males and females is about $.17$. At this level, it's plausible that some number of variants have true effect size differences large enough to justify a GxE model, but most will be predicted better by the additive model.
 
+## Polygenic Simulations
+
+The general framework I have created for polygenic simulation with $n$ SNPs and $m$ individuals involves the following steps
+
+(1) Generate an $n \times 2$ matrix $\beta$ of true effect sizes where each row is generated independently as 
+
+\begin{equation*}
+\beta_{j \cdot} \sim \pi_{0}\delta_{0} + \sum\limits_{i = 1}^{k} \pi_{k}N(0, U^{(k)})
+\end{equation*}
+
+where $\pi_{0}, \dots, \pi_{k}$ are mixture proportions and $U^{(1)}, \dots, U^{(k)}$ are the covariance matrices for each mixture component.
+
+(2) For environment $e$ and SNP $j$ with minor allele frequency $f_{j}^{(e)}$, generate independently
+
+\begin{equation*}
+x_{1}, ..., x_{m} \sim Binomial(2, f_{j}^{(e)})
+\end{equation*}
+
+(3) For environment $e$ and SNP $j$ with observation noise $\sigma_{j}^{(e)}$, set
+
+\begin{equation*}
+y_{i} = \beta_{je} x_{i} + \epsilon_{i}
+\end{equation*}
+
+where each $\epsilon_{i}$ is generated independently from a $N(0, \sigma_{j}^{(e)})$ distribution.
+
+This data then allows us to estimate $\hat{\beta}$ using the additive model, the GxE model, and mash using Carrie's setup.
+
+## Simulation Runs 
+
+Based on the hypothesis of "paying the price of admission for using mash", we would expect mash to perform worst relative to the additive model when there is perfect correlation between effects in each environment. This is because the univariate estimates are made much worse by splitting the data into two environments, but the additive model will be unbiased and have twice the sample size.
+
+To test this, I used the simulation procedure above with $\pi_{0} = 0$ and 10 mixture components that are all scalings of the covariance matrix representing perfect correlation between environmental effects. 
+
+To my surprise, the mash model seems to consistently perform a bit better than the additive model (which performs about twice as well as GxE, as expected). When I looked at some of the estimated mash models, I saw that mash was estimating the prior very well. This, I believe, explains the superior performance.
+
+```{r, eval=FALSE}
+Sigma <- list()
+
+perfect_corr_mat <- matrix(data = 1, nrow = 2, ncol = 2)
+
+for (i in c(1:10)) {
+  
+  Sigma[[i]] <- .1 * i * perfect_corr_mat
+  
+}
+
+gwas_perfect_corr_test <- simulate_2env_gwas_mse(
+  n_sims = 25,
+  n_snps = 5000,
+  n_e0 = 1000,
+  n_e1 = 1000,
+  sigma_e0 = 7.5,
+  sigma_e1 = 7.5,
+  Sigma = Sigma,
+  s = 0,
+  corr_range = seq(from = -1, to = 1, by = (1/3)),
+  amp_range = c(1.5, 2),
+)
+```
+
+```{r, echo=FALSE}
+gwas_perfect_corr_test <- readr::read_rds("rds_data/gwas_perfect_corr.rds")
+df <- data.frame(gwas_perfect_corr_test)
+colnames(df) <- c("Mash_mse", "GxE_mse", "Additive_mse")
+knitr::kable(round(df, 3))
+```
+
+
+```{r, include=FALSE, eval=FALSE}
+female_p_df <- female_df %>%
+  dplyr::filter(p_f < .005)
+
+male_p_df <- male_df %>%
+  dplyr::filter(p_m < .005)
+
+fx_ecdf <- c(female_p_df$beta_f, male_p_df$beta_m)
+```
+
+```{r, eval=FALSE, include=FALSE}
+gwas_perfect_corr_test_ecdf <- simulate_2env_gwas_mse(
+  n_sims = 25,
+  n_snps = 5000,
+  n_e0 = 1000,
+  n_e1 = 1000,
+  sigma_e0 = 5,
+  sigma_e1 = 5,
+  s = 0,
+  prior = "ecdf",
+  fx_ecdf = fx_ecdf[fx_ecdf < 7],
+  corr_range = seq(from = -1, to = 1, by = (1/3)),
+  amp_range = c(1.5, 2),
+)
+```
+
+## The Price of Admission for Mash
+
+To further test the notion of "the price of admission for mash", I wanted to reduce the problem to a simpler scenario that's easier to understand. Assume the following bivariate normal-normal model for our data $\boldsymbol{x}$
+
+\begin{align*}
+\boldsymbol{x} &\sim N(\boldsymbol{\mu}, \Sigma) \\
+\boldsymbol{\mu} &\sim N(\boldsymbol{\mu}_{0}, \Sigma_{0})
+\end{align*}
+
+where $\Sigma_{0}$ is a known prior covariance matrix, $\boldsymbol{\mu}_{0}$ is a known prior mean, and $\Sigma$ is a known observation covariance matrix (assumed to be diagonal in this case).
+
+Our goal is to predict $\boldsymbol{\mu} = (\mu_{1}, \mu_{2})$, the mean of the observations. There are three obvious ways to estimate $\boldsymbol{\mu}$:
+
+(1) Assume $\mu_{1} = \mu_{2}$ and estimate $\hat{\boldsymbol{\mu}} = \Big(\frac{x_{1} + x_{2}}{2}, \frac{x_{1} + x_{2}}{2}\Big)$. This is akin to the additive model.
+
+(2) Estimate $\mu_{1}$ and $\mu_{2}$ separately. $\hat{\boldsymbol{\mu}} = (x_{1}, x_{2})$. This is akin to the GxE model.
+
+(3) Estimate $\boldsymbol{\mu}$ as the posterior mean from the Bayesian model above. 
+
+\begin{equation*}
+\hat{\boldsymbol{\mu}} = \Sigma_{0}\Big(\Sigma + \Sigma_{0}\Big)^{-1}\boldsymbol{x} + \Sigma\Big(\Sigma + \Sigma_{0}\Big)^{-1}\boldsymbol{\mu}_{0}
+\end{equation*}
+
+This is akin to the mash model when we set $\boldsymbol{\mu}_{0} = 0$.
+
+I simulated data and estimated the posterior mean with the above 3 approaches. The results and code are shown below:
+
+```{r}
+# compute posterior mean for bivariate normal-normal model
+biv_norm_post_mean <- function(prior_mean, prior_cov, obs, obs_cov) {
+  
+  coef <- solve(prior_cov + obs_cov)
+  post_mean <- prior_cov %*% coef %*% obs + obs_cov %*% coef %*% prior_mean
+  return(post_mean)
+  
+}
+
+# generate multivariate normal-normal data
+generate_multivariate_nn <- function(n, prior_cov, obs_cov) {
+  
+  X <- MASS::mvrnorm(n = n, mu = rep(0, ncol(prior_cov)), Sigma = prior_cov)
+  Y <- X + MASS::mvrnorm(n = n, mu = rep(0, ncol(prior_cov)), Sigma = obs_cov)
+  return(list(X = X, Y = Y))
+  
+}
+
+sim_mse_mvn <- function(num_sims, prior_cov, obs_cov) {
+  
+  samp <- generate_multivariate_nn(num_sims, prior_cov, obs_cov)
+
+  comb_est <- .5 * samp$Y[,1] + .5 * samp$Y[,2]
+  comb_est_mat <- matrix(data = rep(comb_est, 2), nrow = num_sims)
+  comb_est_mse <- mean((samp$X - comb_est_mat) ^ 2)
+  
+  sep_est_mse <- mean((samp$Y - samp$X) ^ 2)
+  
+  bayes_est_mat <- matrix(nrow = num_sims, ncol = ncol(obs_cov))
+  for (i in c(1:num_sims)) {
+    
+    bayes_est_mat[i, ] <- biv_norm_post_mean(rep(0, ncol(obs_cov)), prior_cov, samp$Y[i, ], obs_cov)
+    
+  }
+  
+  bayes_est_mse <- mean((bayes_est_mat - samp$X) ^ 2)
+  
+  return(
+    list(
+      sep_mse = sep_est_mse, 
+      comb_mse = comb_est_mse,
+      bayes_mse = bayes_est_mse
+    )
+  )
+  
+}
+```
+
+```{r}
+prior_cov <- matrix(data = c(1, 1, 1, 1), nrow = 2)
+obs_cov <- diag(2)
+nm_sim_test <- sim_mse_mvn(num_sims = 1000, prior_cov, obs_cov)
+```
+
+```{r, echo=F}
+df <- data.frame(nm_sim_test)
+knitr::kable(round(df, 3))
+```
+
+Why does (3) work best? I believe it is because it combines $x_{1}$ and $x_{2}$ but also regresses the observed data towards the prior mean. Even though the univariate estimates of each element of  $\boldsymbol{\mu}$ fed into the Bayesian model are worse, the model knows that. Thus, it is able to take into account the variance and also regress the observed effects back to the mean, which works better than approaches (1) and (2), which do not take the prior into account at all.
+
+For mash, I believe that we're seeing a similar phenomenon. The univariate estimates being worse isn't what effects performance per se. Rather, when the prior is known imprecisely (as is the case in real data examples), the univariate estimates are regressed to a prior that may not represent the true generative model. In this case, the additive model may perform better than mash. 
+
+Thus, I suspect that the performance of mash in the PGS context is a result of modelling error, and not as a result of the decrease is sample size of the univariate estimates. Our simulation studies should reflect this.
