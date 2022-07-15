@@ -1,2 +1,4 @@
 data/*
 rds_data/*
+.Rproj.user
+*.Rproj

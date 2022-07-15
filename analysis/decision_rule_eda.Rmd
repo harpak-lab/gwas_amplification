@@ -28,11 +28,17 @@ get_theo_obs_noise <- function(se, n, maf) {
   
 }
 
-get_sep_model_mse <- function(sigma, g) {
+get_GxE_2env_mse <- function(sigma, g) {
   
   ssg <- sum((g - mean(g)) ^ 2)
-  mse <- (sigma ^ 2) / ssg
-  return(mse)
+  var <- (sigma ^ 2) / ssg
+  return(
+    list(
+      mse = var,
+      bias = 0,
+      var = var
+    )
+  )
   
 }
 
@@ -136,6 +142,70 @@ simulate_fx_var_dec_rule_1_site <- function(
 }
 ```
 
+```{r}
+simulate_fx_var_dec_rule_1_site_n_sd <- function(
+  n_e0,
+  n_e1,
+  se_grid,
+  fx_diff_norm_grid,
+  maf_e0 = .4,
+  maf_e1 = .4,
+  int_e0 = 0,
+  int_e1 = 0,
+  sims_per_iter = 10
+) {
+  
+  sim_df <- expand.grid(fx_diff_norm_grid, se_grid)
+  colnames(sim_df) <- c("fx_diff_norm", "se")
+  
+  mse_sep_vec <- numeric(nrow(sim_df))
+  mse_comb_vec <- numeric(nrow(sim_df))
+  
+  for (i in 1:nrow(sim_df)) {
+    
+    print(glue::glue("Performing simulation {i} of {nrow(sim_df)}"))
+    
+    mse_sep_iter_vec <- numeric(sims_per_iter)
+    mse_comb_iter_vec <- numeric(sims_per_iter)
+    
+    sigma_e0 <- get_theo_obs_noise(sim_df$se[i], n_e0, maf_e0)
+    sigma_e1 <- get_theo_obs_noise(sim_df$se[i], n_e1, maf_e1)
+    
+    for(j in 1:sims_per_iter) {
+    
+      g_e0 <- rbinom(n = n_e0, size = 2, prob = maf_e0)
+      g_e1 <- rbinom(n = n_e1, size = 2, prob = maf_e1)
+      
+      mse_sep_iter_vec[j] <- get_sep_model_mse(sigma_e1, g_e1)
+      
+      implied_fx_diff <- sim_df$fx_diff_norm[i] * sim_df$se[i]
+      
+      mse_comb_iter_vec[j] <- get_comb_model_mse(
+                                fx_e0 = 0, 
+                                fx_e1 = implied_fx_diff, 
+                                int_e0 = int_e0,
+                                int_e1 = int_e1,
+                                sigma_e0 = sigma_e0,
+                                sigma_e1 = sigma_e1,
+                                g_e0 = g_e0,
+                                g_e1 = g_e1
+                            )
+      
+    }
+    
+    mse_sep_vec[i] <- mean(mse_sep_iter_vec)
+    mse_comb_vec[i] <- mean(mse_comb_iter_vec)
+    
+  }
+  
+  sim_df$mse_sep <- mse_sep_vec
+  sim_df$mse_comb <- mse_comb_vec
+  return(sim_df)
+  
+}
+```
+
+
 ```{r, eval=FALSE, include=FALSE}
 sim_test <- simulate_fx_var_dec_rule_1_site(
   n_e0 = 1.5e05,
@@ -152,11 +222,33 @@ sim_test <- simulate_fx_var_dec_rule_1_site(
 readr::write_rds(sim_test, "rds_data/sim_1_site_dec_rule_ukbb.rds")
 ```
 
+```{r, eval=FALSE, include=FALSE}
+sim_test_n_sd <- simulate_fx_var_dec_rule_1_site_n_sd(
+  n_e0 = 1.5e05,
+  n_e1 = 1.5e05,
+  se_grid = seq(from = .01, to = 1, length.out = 10),
+  fx_diff_norm_grid = seq(from = 0, to = 10, length.out = 10),
+  maf_e0 = .4,
+  maf_e1 = .4,
+  int_e0 = 0,
+  int_e1 = 0,
+  sims_per_iter = 10
+)
+
+#readr::write_rds(sim_test, "rds_data/sim_1_site_dec_rule_ukbb.rds")
+```
 
 ```{r, include=FALSE}
 sim_test <- readr::read_rds("rds_data/sim_1_site_dec_rule_ukbb.rds")
 
 sim_test <- sim_test %>%
+  dplyr::mutate(mse_diff = mse_comb - mse_sep)
+```
+
+```{r, include=FALSE}
+#sim_test <- readr::read_rds("rds_data/sim_1_site_dec_rule_ukbb.rds")
+
+sim_test_n_sd <- sim_test_n_sd %>%
   dplyr::mutate(mse_diff = mse_comb - mse_sep)
 ```
 
@@ -245,28 +337,54 @@ To my surprise, the mash model seems to consistently perform a bit better than t
 
 ```{r, eval=FALSE}
 Sigma <- list()
+mu <- list()
 
 perfect_corr_mat <- matrix(data = 1, nrow = 2, ncol = 2)
 
 for (i in c(1:10)) {
   
-  Sigma[[i]] <- .1 * i * perfect_corr_mat
+  Sigma[[i]] <- .25 * i * perfect_corr_mat
+  mu[[i]] <- c(0, 0)
   
 }
 
-gwas_perfect_corr_test <- simulate_2env_gwas_mse(
-  n_sims = 25,
-  n_snps = 5000,
-  n_e0 = 1000,
-  n_e1 = 1000,
-  sigma_e0 = 7.5,
-  sigma_e1 = 7.5,
-  Sigma = Sigma,
-  s = 0,
-  corr_range = seq(from = -1, to = 1, by = (1/3)),
-  amp_range = c(1.5, 2),
+sep_mse_vec <- c()
+comb_mse_vec <- c()
+mash_mse_vec <- c()
+
+for (se in seq(.05, .75, .1)) {
+  
+  gwas_perfect_corr_se <- simulate_2env_gwas_mse(
+    n_sims = 10,
+    n_snps = 1700,
+    n_e0 = 1000,
+    n_e1 = 1000,
+    sigma_e0 = get_theo_obs_noise(se, 1000, .4),
+    sigma_e1 = get_theo_obs_noise(se, 1000, .4),
+    Sigma = Sigma,
+    mu = mu,
+    s = 0,
+    corr_range = seq(from = -1, to = 1, by = (1/3)),
+    amp_range = c(1.5, 2),
+    prior = "mash"
+  )
+  
+  sep_mse_vec <- c(sep_mse_vec, gwas_perfect_corr_se$sep_mse)
+  comb_mse_vec <- c(comb_mse_vec, gwas_perfect_corr_se$comb_mse)
+  mash_mse_vec <- c(mash_mse_vec, gwas_perfect_corr_se$mash_mse)
+  
+}
+
+se_results_df <- data.frame(
+  se = seq(.05, .55, .1), 
+  sep_mse = sep_mse_vec,
+  comb_mse = comb_mse_vec,
+  mash_mse = mash_mse_vec
 )
+
+readr::write_rds(se_results_df, "rds_data/se_diff_mash_sim.rds")
 ```
+
 
 ```{r, echo=FALSE}
 gwas_perfect_corr_test <- readr::read_rds("rds_data/gwas_perfect_corr.rds")
