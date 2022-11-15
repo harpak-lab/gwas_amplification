@@ -4,7 +4,7 @@
 \alias{simulate_polygenic_data_2env}
 \title{Simulate polygenic data from two environments}
 \usage{
-simulate_polygenic_data_2env(fx_mat, n_e0, n_e1, e0_h2, e1_h2, maf_simulator)
+simulate_polygenic_data_2env(fx_mat, n_e0, n_e1, e0_h2, e1_h2, maf_vec)
 }
 \arguments{
 \item{fx_mat}{n x 2m matrix of true effects}

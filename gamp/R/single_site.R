@@ -394,3 +394,362 @@ sim_diff_variance_2env <- function(
   return(sim_df)
 
 }
+
+#' Simulate MSE for GxE and Additive Model on A Grid With Difference Effect Sizes
+#' And Environmental Variance Ratios
+#'
+#' This code allows the user to specify a grid of ratios of environmental
+#' variance between environments
+#' and a grid of differences in effect size between environments
+#' (normalized by the standard error).
+#'
+#' @param sigma_ratio ratio of standard errors between environments
+#' @param fx_diff_grid grid of differences in effect size
+#' @param se_grid grid of standard errors of regression coefficients
+#'
+#' @return dataframe with various metrics for the GxE and additive models.
+#' @export
+#'
+#' @importFrom magrittr %>%
+#'
+sim_var_ratio_2env <- function(
+  sigma_ratio,
+  fx_diff_grid,
+  se_grid
+) {
+
+  sim_df <- expand.grid(fx_diff_grid, se_grid)
+  colnames(sim_df) <- c("fx_diff", "se")
+
+  mse_GxE_vec <- numeric(nrow(sim_df))
+  mse_additive_vec <- numeric(nrow(sim_df))
+
+  mse_e0_GxE_vec <- numeric(nrow(sim_df))
+  var_e0_GxE_vec <- numeric(nrow(sim_df))
+  bias_e0_GxE_vec <- numeric(nrow(sim_df))
+
+  mse_e1_GxE_vec <- numeric(nrow(sim_df))
+  var_e1_GxE_vec <- numeric(nrow(sim_df))
+  bias_e1_GxE_vec <- numeric(nrow(sim_df))
+
+  mse_e0_additive_vec <- numeric(nrow(sim_df))
+  var_e0_additive_vec <- numeric(nrow(sim_df))
+  bias_e0_additive_vec <- numeric(nrow(sim_df))
+
+  mse_e1_additive_vec <- numeric(nrow(sim_df))
+  var_e1_additive_vec <- numeric(nrow(sim_df))
+  bias_e1_additive_vec <- numeric(nrow(sim_df))
+
+  avg_se_vec <- numeric(nrow(sim_df))
+
+  for (i in 1:nrow(sim_df)) {
+
+    fx_e0 <- 0
+    fx_e1 <- sim_df$fx_diff[i]
+
+    se_0 <- sim_df$se[i]
+    se_1 <- se_0 * sigma_ratio
+
+    se_additive <- sqrt(.25 * (se_0 ^ 2) + .25 * (se_1 ^ 2))
+
+    avg_se_vec[i] <- se_additive
+
+    exp_additive <- mean(c(fx_e0, fx_e1))
+
+    # update vectors
+    mse_GxE_vec[i] <- .5 * se_0 ^ 2 + .5 * se_1 ^ 2
+    mse_additive_vec[i] <- .5 * (
+      se_additive ^ 2 + (exp_additive - fx_e0) ^ 2
+    ) + .5 * (se_additive ^ 2 + (exp_additive - fx_e1) ^ 2)
+
+    mse_e0_GxE_vec[i] <- se_0 ^ 2
+    var_e0_GxE_vec[i] <- se_0 ^ 2
+    bias_e0_GxE_vec[i] <- 0
+
+    mse_e1_GxE_vec[i] <- se_1 ^ 2
+    var_e1_GxE_vec[i] <- se_1 ^ 2
+    bias_e1_GxE_vec[i] <- 0
+
+    mse_e0_additive_vec[i] <- se_additive ^ 2 + (exp_additive - fx_e0) ^ 2
+    var_e0_additive_vec[i] <- se_additive ^ 2
+    bias_e0_additive_vec[i] <- exp_additive - fx_e0
+
+    mse_e1_additive_vec[i] <- se_additive ^ 2 + (exp_additive - fx_e1) ^ 2
+    var_e1_additive_vec[i] <- se_additive ^ 2
+    bias_e1_additive_vec[i] <- exp_additive - fx_e1
+
+
+  }
+
+  sim_df <- sim_df %>%
+    dplyr::mutate(
+      mse_GxE = mse_GxE_vec,
+      mse_additive = mse_additive_vec,
+
+      mse_e0_GxE = mse_e0_GxE_vec,
+      var_e0_GxE = var_e0_GxE_vec,
+      bias_e0_GxE = bias_e0_GxE_vec,
+
+      mse_e1_GxE = mse_e1_GxE_vec,
+      var_e1_GxE = var_e1_GxE_vec,
+      bias_e1_GxE = bias_e1_GxE_vec,
+
+      mse_e0_additive = mse_e0_additive_vec,
+      var_e0_additive = var_e0_additive_vec,
+      bias_e0_additive = bias_e0_additive_vec,
+
+      mse_e1_additive = mse_e1_additive_vec,
+      var_e1_additive = var_e1_additive_vec,
+      bias_e1_additive = bias_e1_additive_vec,
+
+      avg_se = avg_se_vec
+    )
+
+  return(sim_df)
+
+}
+
+#' Simulate MSE for GxE and Additive Model on A Grid With Difference Effect Sizes
+#' And Environmental Variance Ratios
+#'
+#' This code allows the user to specify a grid of ratios of environmental
+#' variance between environments
+#' and a grid of differences in effect size between environments
+#' (normalized by the standard error).
+#'
+#' @param sigma_ratio ratio of standard errors between environments
+#' @param fx_diff_grid grid of differences in effect size
+#' @param se_grid grid of standard errors of regression coefficients
+#'
+#' @return dataframe with various metrics for the GxE and additive models.
+#' @export
+#'
+#' @importFrom magrittr %>%
+#'
+sim_var_ratio_grid_2env <- function(
+  sigma_ratio_grid,
+  fx_diff_grid,
+  se = 1
+) {
+
+  sim_df <- expand.grid(fx_diff_grid, sigma_ratio_grid)
+  colnames(sim_df) <- c("fx_diff", "sigma_ratio")
+
+  mse_GxE_vec <- numeric(nrow(sim_df))
+  mse_additive_vec <- numeric(nrow(sim_df))
+
+  mse_e0_GxE_vec <- numeric(nrow(sim_df))
+  var_e0_GxE_vec <- numeric(nrow(sim_df))
+  bias_e0_GxE_vec <- numeric(nrow(sim_df))
+
+  mse_e1_GxE_vec <- numeric(nrow(sim_df))
+  var_e1_GxE_vec <- numeric(nrow(sim_df))
+  bias_e1_GxE_vec <- numeric(nrow(sim_df))
+
+  mse_e0_additive_vec <- numeric(nrow(sim_df))
+  var_e0_additive_vec <- numeric(nrow(sim_df))
+  bias_e0_additive_vec <- numeric(nrow(sim_df))
+
+  mse_e1_additive_vec <- numeric(nrow(sim_df))
+  var_e1_additive_vec <- numeric(nrow(sim_df))
+  bias_e1_additive_vec <- numeric(nrow(sim_df))
+
+  avg_se_vec <- numeric(nrow(sim_df))
+
+  for (i in 1:nrow(sim_df)) {
+
+    fx_e0 <- 0
+    fx_e1 <- sim_df$fx_diff[i]
+
+    se_0 <- se
+    se_1 <- sim_df$sigma_ratio[i]
+
+    se_additive <- sqrt(.25 * (se_0 ^ 2) + .25 * (se_1 ^ 2))
+
+    avg_se_vec[i] <- se_additive
+
+    exp_additive <- mean(c(fx_e0, fx_e1))
+
+    # update vectors
+    mse_GxE_vec[i] <- .5 * se_0 ^ 2 + .5 * se_1 ^ 2
+    mse_additive_vec[i] <- .5 * (
+      se_additive ^ 2 + (exp_additive - fx_e0) ^ 2
+    ) + .5 * (se_additive ^ 2 + (exp_additive - fx_e1) ^ 2)
+
+    mse_e0_GxE_vec[i] <- se_0 ^ 2
+    var_e0_GxE_vec[i] <- se_0 ^ 2
+    bias_e0_GxE_vec[i] <- 0
+
+    mse_e1_GxE_vec[i] <- se_1 ^ 2
+    var_e1_GxE_vec[i] <- se_1 ^ 2
+    bias_e1_GxE_vec[i] <- 0
+
+    mse_e0_additive_vec[i] <- se_additive ^ 2 + (exp_additive - fx_e0) ^ 2
+    var_e0_additive_vec[i] <- se_additive ^ 2
+    bias_e0_additive_vec[i] <- exp_additive - fx_e0
+
+    mse_e1_additive_vec[i] <- se_additive ^ 2 + (exp_additive - fx_e1) ^ 2
+    var_e1_additive_vec[i] <- se_additive ^ 2
+    bias_e1_additive_vec[i] <- exp_additive - fx_e1
+
+
+  }
+
+  sim_df <- sim_df %>%
+    dplyr::mutate(
+      mse_GxE = mse_GxE_vec,
+      mse_additive = mse_additive_vec,
+
+      mse_e0_GxE = mse_e0_GxE_vec,
+      var_e0_GxE = var_e0_GxE_vec,
+      bias_e0_GxE = bias_e0_GxE_vec,
+
+      mse_e1_GxE = mse_e1_GxE_vec,
+      var_e1_GxE = var_e1_GxE_vec,
+      bias_e1_GxE = bias_e1_GxE_vec,
+
+      mse_e0_additive = mse_e0_additive_vec,
+      var_e0_additive = var_e0_additive_vec,
+      bias_e0_additive = bias_e0_additive_vec,
+
+      mse_e1_additive = mse_e1_additive_vec,
+      var_e1_additive = var_e1_additive_vec,
+      bias_e1_additive = bias_e1_additive_vec,
+
+      avg_se = avg_se_vec
+    )
+
+  return(sim_df)
+
+}
+
+#' Simulate MSE for GxE and Additive Model on A Grid With Difference Effect Sizes
+#' And Environmental Variance Ratios
+#'
+#' This code allows the user to specify a grid of ratios of environmental
+#' variance between environments
+#' and a grid of differences in effect size between environments
+#' (normalized by the standard error).
+#'
+#' @param sigma_ratio ratio of standard errors between environments
+#' @param fx_diff_grid grid of differences in effect size
+#' @param se_grid grid of standard errors of regression coefficients
+#'
+#' @return dataframe with various metrics for the GxE and additive models.
+#' @export
+#'
+#' @importFrom magrittr %>%
+#'
+get_sigma_ratio_line <- function(sigma_ratio) {
+
+  fx_diff_grid <- seq(0, 2.5, length.out = 500)
+  se_grid <- seq(1e-8, 2.5, length.out = 500)
+
+  sim_df <- expand.grid(fx_diff_grid, se_grid)
+  colnames(sim_df) <- c("fx_diff", "se")
+
+  mse_GxE_vec <- numeric(nrow(sim_df))
+  mse_additive_vec <- numeric(nrow(sim_df))
+
+  mse_e0_GxE_vec <- numeric(nrow(sim_df))
+  var_e0_GxE_vec <- numeric(nrow(sim_df))
+  bias_e0_GxE_vec <- numeric(nrow(sim_df))
+
+  mse_e1_GxE_vec <- numeric(nrow(sim_df))
+  var_e1_GxE_vec <- numeric(nrow(sim_df))
+  bias_e1_GxE_vec <- numeric(nrow(sim_df))
+
+  mse_e0_additive_vec <- numeric(nrow(sim_df))
+  var_e0_additive_vec <- numeric(nrow(sim_df))
+  bias_e0_additive_vec <- numeric(nrow(sim_df))
+
+  mse_e1_additive_vec <- numeric(nrow(sim_df))
+  var_e1_additive_vec <- numeric(nrow(sim_df))
+  bias_e1_additive_vec <- numeric(nrow(sim_df))
+
+  avg_se_vec <- numeric(nrow(sim_df))
+
+  for (i in 1:nrow(sim_df)) {
+
+    fx_e0 <- 0
+    fx_e1 <- sim_df$fx_diff[i]
+
+    se_0 <- sim_df$se[i]
+    se_1 <- se_0 * sigma_ratio
+
+    se_additive <- sqrt(.25 * (se_0 ^ 2) + .25 * (se_1 ^ 2))
+
+    avg_se_vec[i] <- se_additive
+
+    exp_additive <- mean(c(fx_e0, fx_e1))
+
+    # update vectors
+    mse_GxE_vec[i] <- .5 * se_0 ^ 2 + .5 * se_1 ^ 2
+    mse_additive_vec[i] <- .5 * (
+      se_additive ^ 2 + (exp_additive - fx_e0) ^ 2
+    ) + .5 * (se_additive ^ 2 + (exp_additive - fx_e1) ^ 2)
+
+    mse_e0_GxE_vec[i] <- se_0 ^ 2
+    var_e0_GxE_vec[i] <- se_0 ^ 2
+    bias_e0_GxE_vec[i] <- 0
+
+    mse_e1_GxE_vec[i] <- se_1 ^ 2
+    var_e1_GxE_vec[i] <- se_1 ^ 2
+    bias_e1_GxE_vec[i] <- 0
+
+    mse_e0_additive_vec[i] <- se_additive ^ 2 + (exp_additive - fx_e0) ^ 2
+    var_e0_additive_vec[i] <- se_additive ^ 2
+    bias_e0_additive_vec[i] <- exp_additive - fx_e0
+
+    mse_e1_additive_vec[i] <- se_additive ^ 2 + (exp_additive - fx_e1) ^ 2
+    var_e1_additive_vec[i] <- se_additive ^ 2
+    bias_e1_additive_vec[i] <- exp_additive - fx_e1
+
+
+  }
+
+  sim_df <- sim_df %>%
+    dplyr::mutate(
+      mse_GxE = mse_GxE_vec,
+      mse_additive = mse_additive_vec,
+
+      mse_e0_GxE = mse_e0_GxE_vec,
+      var_e0_GxE = var_e0_GxE_vec,
+      bias_e0_GxE = bias_e0_GxE_vec,
+
+      mse_e1_GxE = mse_e1_GxE_vec,
+      var_e1_GxE = var_e1_GxE_vec,
+      bias_e1_GxE = bias_e1_GxE_vec,
+
+      mse_e0_additive = mse_e0_additive_vec,
+      var_e0_additive = var_e0_additive_vec,
+      bias_e0_additive = bias_e0_additive_vec,
+
+      mse_e1_additive = mse_e1_additive_vec,
+      var_e1_additive = var_e1_additive_vec,
+      bias_e1_additive = bias_e1_additive_vec,
+
+      avg_se = avg_se_vec
+    )
+
+  sim_df <- sim_df %>%
+    dplyr::mutate(abs_mse_diff = abs(mse_e0_additive - mse_e0_GxE))
+
+  quant <- quantile(sim_df$abs_mse_diff, .005)
+
+  reg_df <- sim_df %>%
+    dplyr::filter(abs_mse_diff <= quant)
+
+  mod <- lm(se ~ fx_diff, data = reg_df)
+
+  coefs <- coef(summary(mod))
+
+  return(
+    list(
+      intercept = coefs["(Intercept)", "Estimate"],
+      slope = coefs["fx_diff", "Estimate"]
+    )
+  )
+
+
+}

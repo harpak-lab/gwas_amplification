@@ -41,15 +41,15 @@ generate_fig3 <- function(sim_df = NULL, write_rds = FALSE) {
       pi <- c(1 - amp_range[i], amp_range[i])
 
       gamp::simulate_pgs_corr(
-        n_e0 = 1000,
-        n_e1 = 1000,
-        n_snps = 500,
-        e0_h2 = .79,
-        e1_h2 = .79,
+        n_e0 = 5000,
+        n_e1 = 5000,
+        n_snps = 1700,
+        e0_h2 = .4,
+        e1_h2 = .4,
         Sigma = Sigma,
         pi = pi,
         maf_simulator = maf_simulator,
-        num_sims = 25,
+        num_sims = 35,
       )
 
     }
@@ -93,16 +93,32 @@ generate_fig3 <- function(sim_df = NULL, write_rds = FALSE) {
 generate_fig3(write_rds = TRUE)
 
 # subsequent analysis
-sim_df <- readr::read_rds("./rds_data/fig3_df.rds")
+sim_df_1 <- readr::read_rds("./rds_data/fig3_df_pt1.rds")
+sim_df_2 <- readr::read_rds("./rds_data/fig3_df_pt2.rds")
+sim_df_3 <- readr::read_rds("./rds_data/fig3_df_pt3.rds")
+sim_df <- rbind(sim_df_1, sim_df_2, sim_df_3)
+
 generate_fig3(sim_df)
 
 
 # temp code
 plot_df <- data.frame(
-  amp = rep(sim_df$amp, 2),
-  corr = c(sim_df$additive_cor, sim_df$GxE_cor),
-  model_type = c(rep("additive", nrow(sim_df)), rep("GxE", nrow(sim_df)))
+  amp = rep(sim_df$amp, 3),
+  corr = c(sim_df$additive_cor, sim_df$GxE_cor, sim_df$mash_cor),
+  model_type = c(rep("additive", nrow(sim_df)), rep("GxE", nrow(sim_df)), rep("mash", nrow(sim_df)))
 )
 
 ggplot(data = plot_df, aes(x = amp, y = corr, color = model_type)) +
-  geom_point()
+  geom_point() +
+  geom_line()
+
+# temp code
+plot_df2 <- data.frame(
+  amp = rep(sim_df$amp, 3),
+  mse = c(sim_df$additive_mse, sim_df$GxE_mse, sim_df$mash_mse),
+  model_type = c(rep("additive", nrow(sim_df)), rep("GxE", nrow(sim_df)), rep("mash", nrow(sim_df)))
+)
+
+ggplot(data = plot_df2, aes(x = amp, y = mse, color = model_type)) +
+  geom_point() +
+  geom_line()

@@ -41,15 +41,15 @@ generate_fig3 <- function(sim_df = NULL, write_rds = FALSE) {
       pi <- c(1 - amp_range[i], amp_range[i])
 
       gamp::simulate_pgs_corr(
-        n_e0 = 1000,
-        n_e1 = 1000,
-        n_snps = 500,
-        e0_h2 = .79,
-        e1_h2 = .79,
+        n_e0 = 5000,
+        n_e1 = 5000,
+        n_snps = 1700,
+        e0_h2 = .4,
+        e1_h2 = .4,
         Sigma = Sigma,
         pi = pi,
         maf_simulator = maf_simulator,
-        num_sims = 25,
+        num_sims = 35,
       )
 
     }

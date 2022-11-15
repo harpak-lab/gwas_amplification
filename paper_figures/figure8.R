@@ -3,28 +3,25 @@ set.seed(1)
 '%>%' <- magrittr::'%>%'
 library(ggplot2)
 
-generate_fig2 <- function(sim_df = NULL, write_rds = FALSE) {
+generate_fig8 <- function(sim_df = NULL, write_rds = FALSE) {
 
   if(is.null(sim_df)) {
 
-    sim_df <- gamp::sim_diff_variance_2env(
-      n_e0 = 1.5e05,
-      n_e1 = 1.5e05,
-      ref_se = .25,
-      maf_e0 = .01,
-      maf_e1 = .01,
-      se_ratio_grid = seq(from = .5, to = 2, length.out = 100),
-      fx_diff_norm_grid = seq(
-        from = 0, to = 1, length.out = 100
-      ) / gamp:::get_theo_obs_noise(se = .25, n = 1.5e05, maf = .2),
-      sims_per_grid_pt = 1
+    sim_df <- gamp::sim_diff_maf_2env(
+      n_e0 = 1.5e03,
+      n_e1 = 1.5e03,
+      maf_grid = seq(from = .01, to = .1, by = .0001),
+      fx_diff_grid = seq(from = 0, to = .5, by = .01),
+      sims_per_grid_pt = 5,
+      sigma_e0 = 7.5,
+      sigma_e1 = 15
     )
 
   }
 
   if(write_rds) {
 
-    readr::write_rds(sim_df, "./rds_data/fig2_df_maf_low.rds")
+    readr::write_rds(sim_df, "./rds_data/fig8_df.rds")
 
   }
 
@@ -32,14 +29,15 @@ generate_fig2 <- function(sim_df = NULL, write_rds = FALSE) {
     dplyr::mutate(
       mse_diff_e0 = mse_e0_additive - mse_e0_GxE,
       var_diff_e0 = var_e0_additive - var_e0_GxE,
-      bias_diff_e0 = bias_e0_additive ^ 2 - bias_e0_GxE
+      bias_diff_e0 = bias_e0_additive ^ 2 - bias_e0_GxE,
+      mse_diff_e1 = mse_e1_additive - mse_e1_GxE,
+      var_diff_e1 = var_e1_additive - var_e1_GxE,
+      bias_diff_e1 = bias_e1_additive ^ 2 - bias_e1_GxE,
     )
 
-  g1 <- ggplot(data = sim_df, aes(x = fx_diff_norm, y = se_ratio, fill = mse_diff_e0)) +
+  g1 <- ggplot(data = sim_df, aes(x = fx_diff, y = maf, fill = mse_diff_e1)) +
     geom_tile() +
     scale_fill_gradient2() +
-    ylab(latex2exp::TeX("$\\frac{\\sigma_{1}}{\\sigma_{0}}$")) +
-    xlab(latex2exp::TeX("$\\frac{|\\beta_{1}^{(0)} - \\beta_{1}^{(1)}|}{\\sigma_{0}}$")) +
     ggtitle("MSE Additive - MSE GxE") +
     theme(plot.title = element_text(hjust = 0.5))
 
@@ -63,8 +61,8 @@ generate_fig2 <- function(sim_df = NULL, write_rds = FALSE) {
 }
 
 # first time simulation
-#generate_fig2(write_rds = TRUE)
+generate_fig8(write_rds = TRUE)
 
 # subsequent analysis
-sim_df <- readr::read_rds("./rds_data/fig2_df_maf_super_low.rds")
-generate_fig2(sim_df)
+sim_df <- readr::read_rds("./rds_data/fig8_df.rds")
+generate_fig8(sim_df)

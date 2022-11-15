@@ -7,7 +7,7 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-source("simulation.R", local = knitr::knit_global())
+#source("simulation.R", local = knitr::knit_global())
 ```
 
 ```{r, include=FALSE}
@@ -17,8 +17,8 @@ library(ggplot2)
 ```
 
 ```{r, include=FALSE}
-male_df <- readr::read_tsv(file = 'data/male_all.systolicBP_auto.glm.linear', n_max = 50000)
-female_df <- readr::read_tsv(file = 'data/female_all.systolicBP_auto.glm.linear', n_max = 50000)
+male_df <- readr::read_tsv(file = '../data/male_all.systolicBP_auto.glm.linear', n_max = 50000)
+female_df <- readr::read_tsv(file = '../data/female_all.systolicBP_auto.glm.linear', n_max = 50000)
 ```
 
 ```{r, eval=FALSE, include=FALSE}

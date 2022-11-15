@@ -13,7 +13,7 @@ generate_fig3 <- function(sim_df = NULL, write_rds = FALSE) {
     Sigma <- list()
 
     Sigma[[1]] <- matrix(data = 1, nrow = 2, ncol = 2)
-    Sigma[[2]] <- matrix(data = c(1, sqrt(3), sqrt(3), 3), ncol = 2)
+    Sigma[[2]] <- matrix(data = c(1, sqrt(1.5), sqrt(1.5), 1.5), ncol = 2)
 
     additive_cor_vec <- c()
     GxE_cor_vec <- c()
@@ -24,12 +24,12 @@ generate_fig3 <- function(sim_df = NULL, write_rds = FALSE) {
 
     maf_simulator <- function(n) {
 
-      runif(n, .025, .5)
+      runif(n, .05, .5)
 
     }
 
     #amp_range <- seq(0, 1, .1)
-    amp_range <- c(.7, .8, .9, 1)
+    amp_range <- c(.4, .5, .6, .7, .8, .9, 1)
     len_amp_range <- length(amp_range)
 
     amp_corr_res <- foreach(
@@ -41,15 +41,15 @@ generate_fig3 <- function(sim_df = NULL, write_rds = FALSE) {
       pi <- c(1 - amp_range[i], amp_range[i])
 
       gamp::simulate_pgs_corr(
-        n_e0 = 5000,
-        n_e1 = 5000,
+        n_e0 = 1.5e05,
+        n_e1 = 1.5e05,
         n_snps = 1700,
         e0_h2 = .4,
         e1_h2 = .4,
         Sigma = Sigma,
         pi = pi,
         maf_simulator = maf_simulator,
-        num_sims = 35,
+        num_sims = 15,
       )
 
     }
@@ -79,7 +79,7 @@ generate_fig3 <- function(sim_df = NULL, write_rds = FALSE) {
 
   if(write_rds) {
 
-    readr::write_rds(sim_df, "./rds_data/fig3_df_pt3.rds")
+    readr::write_rds(sim_df, "./rds_data/fig4_pt2.rds")
 
   }
 

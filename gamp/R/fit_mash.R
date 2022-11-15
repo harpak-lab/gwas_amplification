@@ -166,11 +166,20 @@ make_amp_cov_mat_list <- function(
 #'
 #' @return mash object
 #'
-fit_mash_gwas_2env <- function(Bhat, Shat, corr_range, amp_range) {
+fit_mash_gwas_2env <- function(Bhat, Shat, corr_range, amp_range, fitted_g = NULL) {
 
   cov_mats <- make_amp_cov_mat_list(corr_range, amp_range)
   mash_data <- mashr::mash_set_data(Bhat, Shat)
-  m <- mashr::mash(mash_data, cov_mats)
+  if (is.null(fitted_g)) {
+
+    m <- mashr::mash(mash_data, cov_mats)
+
+  } else {
+
+    m <- mashr::mash(mash_data, fixg = TRUE, g = fitted_g)
+
+  }
+
   return(m)
 
 }

@@ -5,21 +5,23 @@
 \title{Get predictions from a mash model}
 \usage{
 get_test_preds_mash(
-  train_df,
+  Bhat,
+  Shat,
   test_df,
   corr_range = seq(from = -1, to = 1, by = (1/3)),
-  amp_range = c(1.5, 2)
+  amp_range = c(1.5, 2),
+  fitted_g = NULL
 )
 }
 \arguments{
-\item{train_df}{dataframe to fit the additive model}
-
 \item{test_df}{dataframe on which to make polygenic outcome predictions}
 
 \item{corr_range}{vector indicating range of correlation for covariance matrices.
 Must be beteween 0 and 1.}
 
 \item{amp_range}{vector indicating range of amplification of covariance matrices.}
+
+\item{train_df}{dataframe to fit the additive model}
 }
 \value{
 dataframe of predictions and effect size estimates in both environments
