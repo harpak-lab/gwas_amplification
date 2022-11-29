@@ -90,6 +90,7 @@ generate_mse_tradeoff_single_site_plot <- function(
 # first time simulation
 plot <- generate_mse_tradeoff_single_site_plot(write_rds = T, sigma_ratio = 1)
 
+ggarrange(plot$mse_plot, plot$bias_plot, plot$variance_plot)
 
 # subsequent analysis
 sigma_ratio <- 1

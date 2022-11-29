@@ -67,6 +67,15 @@ simulate_polygenic_data_2env <- function(
 
 }
 
+fastLm_wrapper <- function(X, y) {
+  
+  model <- RcppEigen::fastLm(X, y)
+  out_vec <- c(model$coefficients[2], model$se[2], model$df.residual)
+  names(out_vec) <- c("coefficient", "se", "df.residual")
+  return(out_vec)
+  
+}
+
 #' Get predictions from an additive model
 #'
 #' @param train_df dataframe to fit the additive model
@@ -85,28 +94,33 @@ estimate_additive_models <- function(
   est_coefs <- numeric(n_snps)
   pvals <- numeric(n_snps)
 
-  design_mat <- matrix(data = 1, nrow = nrow(train_df), ncol = 2)
-
   snp_names <- paste0("g", 1:n_snps)
 
-  for (i in 1:n_snps) {
-
-    design_mat[, 2] <- train_df[[snp_names[i]]]
-    # fast linear regression
-    snp_lm <- RcppEigen::fastLm(design_mat, train_df$y)
-    pval <- 2 * (1 - pt(
-      q = abs(snp_lm$coefficients[2]) / snp_lm$se[2],
-      df = snp_lm$df.residual)
+  `%do%` <- foreach::`%do%`
+  
+  lm_out_mat <- foreach::foreach(
+    i = 1:n_snps,
+    .combine = "rbind"
+  ) %do% {
+    
+    design_mat <- matrix(
+      data = c(rep(1, nrow(train_df)), train_df[[snp_names[i]]]),
+      nrow = nrow(train_df), 
+      ncol = 2
     )
-    snp_coef <- snp_lm$coefficients[2]
-    est_coefs[i] <- snp_coef
-    pvals[i] = pval
-
+    
+    fastLm_wrapper(design_mat, train_df$y)
+    
   }
+  
+  pvals <- 2 * (1 - pt(
+    q = abs(lm_out_mat[, "coefficient"]) / lm_out_mat[, "se"],
+    df = lm_out_mat[, "df.residual"])
+  )
 
   return(list(
     pval = pvals,
-    est = est_coefs
+    est = lm_out_mat[, "coefficient"]
   ))
 
 }
@@ -157,46 +171,54 @@ estimate_GxE_models <- function(
 
   snp_names <- paste0("g", 1:n_snps)
 
-  design_mat_e0 <- matrix(data = 1, nrow = nrow(train_df_e0), ncol = 2)
-  design_mat_e1 <- matrix(data = 1, nrow = nrow(train_df_e1), ncol = 2)
-
-  for (i in 1:n_snps) {
-
-    design_mat_e0[, 2] <- train_df_e0[[snp_names[i]]]
-    snp_e0_lm <- RcppEigen::fastLm(design_mat_e0, train_df_e0$y)
-    pval_e0 <- 2 * (1 - pt(
-      q = abs(snp_e0_lm$coefficients[2]) / snp_e0_lm$se[2],
-      df = snp_e0_lm$df.residual)
+  `%do%` <- foreach::`%do%`
+  
+  lm_out_mat_e0 <- foreach::foreach(
+    i = 1:n_snps,
+    .combine = "rbind"
+  ) %do% {
+    
+    design_mat_e0 <- matrix(
+      data = c(rep(1, nrow(train_df_e0)), train_df_e0[[snp_names[i]]]),
+      nrow = nrow(train_df_e0), 
+      ncol = 2
     )
-    snp_e0_coef <- snp_e0_lm$coefficients[2]
-    snp_e0_se <- snp_e0_lm$se[2]
-
-    design_mat_e1[, 2] <- train_df_e1[[snp_names[i]]]
-    snp_e1_lm <- RcppEigen::fastLm(design_mat_e1, train_df_e1$y)
-    pval_e1 <- 2 * (1 - pt(
-      q = abs(snp_e1_lm$coefficients[2]) / snp_e1_lm$se[2],
-      df = snp_e1_lm$df.residual)
-    )
-    snp_e1_coef <- snp_e1_lm$coefficients[2]
-    snp_e1_se <- snp_e1_lm$se[2]
-
-    est_coefs_e0[i] <- snp_e0_coef
-    est_coefs_e1[i] <- snp_e1_coef
-
-    est_sds_e0[i] <- snp_e0_se
-    est_sds_e1[i] <- snp_e1_se
-
-    pvals_e0[i] <- pval_e0
-    pvals_e1[i] <- pval_e1
-
+    
+    fastLm_wrapper(design_mat_e0, train_df_e0$y)
+    
   }
+  
+  pvals_e0 <- 2 * (1 - pt(
+    q = abs(lm_out_mat_e0[, "coefficient"]) / lm_out_mat_e0[, "se"],
+    df = lm_out_mat_e0[, "df.residual"])
+  )
+  
+  lm_out_mat_e1 <- foreach::foreach(
+    i = 1:n_snps,
+    .combine = "rbind"
+  ) %do% {
+    
+    design_mat_e1 <- matrix(
+      data = c(rep(1, nrow(train_df_e1)), train_df_e1[[snp_names[i]]]),
+      nrow = nrow(train_df_e1), 
+      ncol = 2
+    )
+    
+    fastLm_wrapper(design_mat_e1, train_df_e1$y)
+    
+  }
+  
+  pvals_e1 <- 2 * (1 - pt(
+    q = abs(lm_out_mat_e1[, "coefficient"]) / lm_out_mat_e1[, "se"],
+    df = lm_out_mat_e1[, "df.residual"])
+  )
 
   return(list(
-    est_e0 = est_coefs_e0,
-    sd_e0 = est_sds_e0,
+    est_e0 = lm_out_mat_e0[, "coefficient"],
+    sd_e0 = lm_out_mat_e0[, "se"],
     pval_e0 = pvals_e0,
-    est_e1 = est_coefs_e1,
-    sd_e1 = est_sds_e1,
+    est_e1 = lm_out_mat_e1[, "coefficient"],
+    sd_e1 = lm_out_mat_e0[, "se"],
     pval_e1 = pvals_e1
   ))
 
@@ -295,7 +317,7 @@ evaluate_selection <- function(fx_mat, est_mat, sel_mat) {
 
   if (sum(sel_mat) > 0) {
 
-    mse <- mean((est_mat[sel_mat] - fx_mat[sel_mat]) ^ 2)
+    mse <- mean((est_mat[sel_mat] - fx_mat[sel_mat]) ^ 2) / var(fx_mat[sel_mat])
 
   } else {
     mse <- 0
@@ -822,7 +844,7 @@ get_selection_metrics <- function(fx_mat, selection_mat, est_mat) {
   type_1_error <- sum(!true_signals & est_signals) / sum(!true_signals)
   accuracy <- sum(est_signals == true_signals) / (2 * nrow(true_signals))
 
-  mse <- mean((est_mat - fx_mat) ^ 2)
+  mse <- mean((est_mat[est_signals] - fx_mat[est_signals]) ^ 2) / var(fx_mat[est_signals])
 
   perc_selected <- sum(est_signals) / (2 * nrow(true_signals))
 
@@ -833,6 +855,20 @@ get_selection_metrics <- function(fx_mat, selection_mat, est_mat) {
   perc_correct_sign <- mean(
     sign(est_mat[true_signals & est_signals]) == sign(fx_mat[true_signals & est_signals])
   )
+  
+  if (
+    is.na(power) ||
+    is.na(type_1_error) ||
+    is.na(accuracy) ||
+    is.na(mse) ||
+    is.na(perc_selected) ||
+    is.na(mse_total) ||
+    is.na(perc_correct_sign)
+  ) {
+    
+    print(0)
+    
+  }
 
   return(
     list(
@@ -948,7 +984,7 @@ simulate_pgs_corr_fast_v2 <- function(
     )
 
     ## 80% of the sample size
-    smp_size <- floor(0.75 * (n_e0 + n_e1))
+    smp_size <- max(n_e0 + n_e1 - 5000, 0.75 * (n_e0 + n_e1))
 
     train_ind <- sample(seq_len(n_e0 + n_e1), size = smp_size)
 

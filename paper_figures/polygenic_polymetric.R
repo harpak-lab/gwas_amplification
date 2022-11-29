@@ -1,7 +1,9 @@
 # Here, I just want to test simulation of the new pgs corr methodology
-set.seed(320)
+set.seed(8675309)
 '%>%' <- magrittr::'%>%'
 library(ggplot2)
+library(doParallel)
+library(foreach)
 
 Sigma <- list()
 #Sigma[[1]] <- (.25 ^ 2) * matrix(data = 1, nrow = 2, ncol = 2)
@@ -9,13 +11,22 @@ Sigma <- list()
 #Sigma[[3]] <- (.25 ^ 2) * matrix(data = c(0, 0, 0, 1), ncol = 2)
 
 Sigma[[1]] <- matrix(data = 1, nrow = 2, ncol = 2)
-Sigma[[2]] <- matrix(data = c(3, sqrt(3), sqrt(3), 1), ncol = 2)
+Sigma[[2]] <- matrix(data = c(2.5, sqrt(2.5), sqrt(2.5), 1), ncol = 2)
 
 maf_simulator <- function(n) {
 
-  pmax(pmin(rbeta(n, .5, 10), .5 - 1e-05), .005)
+  pmax(pmin(rbeta(n, .5, 10), .5 - 1e-05), .0125)
 
 }
+
+n.cores <- parallel::detectCores() - 1
+my.cluster <- parallel::makeCluster(
+  8,
+  type = "PSOCK",
+  outfile = ""
+)
+
+doParallel::registerDoParallel(cl = my.cluster)
 
 metric_vec <- c()
 model_type_vec <- c()
@@ -23,45 +34,78 @@ selection_method_vec <- c()
 value_vec <- c()
 amp_vec <- c()
 
-for (amp in seq(0, 1, length.out = 8)) {
+amp_vec <- seq(0, 1, length.out = 8)
 
-  print(amp)
+sim_out_list <- foreach::foreach(
+  i = 1:length(amp_vec),
+  .packages = c("gamp"),
+  .verbose = T
+) %dopar% {
 
-  sim_out <- gamp::simulate_pgs_corr_fast_v2(
-    n_e0 = ceiling(10000 / .75),
-    n_e1 = ceiling(10000 / .75),
-    n_snps = 1000,
+  gamp::simulate_pgs_corr_fast_v2(
+    n_e0 = ceiling(1000 / .75),
+    n_e1 = ceiling(1000 / .75),
+    n_snps = 5000,
     maf_simulator,
-    e0_h2 = .5,
-    e1_h2 = .5,
+    e0_h2 = .6,
+    e1_h2 = .6,
     Sigma = Sigma,
-    pi = c(1 - amp, amp),
-    num_sims = 25,
+    pi = c(1 - amp_vec[i], amp_vec[i]),
+    num_sims = 500,
     s = .5,
     pval_thresh_additive = .1,
     pval_thresh_GxE = .1,
     selection_methods = c("additive", "GxE")
   )
 
-  for (model_type in c("additive", "GxE")) {
+}
 
-    for (metric in c("mse", "power", "type_1_error", "accuracy", "corr")) {
+for (i in 1:length(amp_vec)) {
 
-      for (selection_method in c("pval", "same_number")) {
+  readr::write_rds(sim_out_list[[i]], glue::glue("rds_data/polymetric_{amp_vec[i]}_zhu_lp_test.rds"))
 
-        metric_vec <- c(metric_vec, metric)
-        model_type_vec <- c(model_type_vec, model_type)
-        value_vec <- c(value_vec, sim_out[[selection_method]][[model_type]][[metric]])
-        selection_method_vec <- c(selection_method_vec, selection_method)
-        amp_vec <- c(amp_vec, amp)
+}
 
-      }
 
-    }
+for (amp in seq(0, 1, length.out = 8)) {
 
-  }
+  print(amp)
 
-  readr::write_rds(sim_out, glue::glue("rds_data/polymetric_{amp}_zhu2_test.rds"))
+  sim_out <-   gamp::simulate_pgs_corr_fast_v2(
+    n_e0 = ceiling(1000 / .75),
+    n_e1 = ceiling(1000 / .75),
+    n_snps = 5000,
+    maf_simulator,
+    e0_h2 = .6,
+    e1_h2 = .6,
+    Sigma = Sigma,
+    pi = c(1 - amp_vec[i], amp_vec[i]),
+    num_sims = 500,
+    s = .5,
+    pval_thresh_additive = .1,
+    pval_thresh_GxE = .1,
+    selection_methods = c("additive", "GxE")
+  )
+
+  # for (model_type in c("additive", "GxE")) {
+  # 
+  #   for (metric in c("mse", "power", "type_1_error", "accuracy", "corr")) {
+  # 
+  #     for (selection_method in c("pval", "same_number")) {
+  # 
+  #       metric_vec <- c(metric_vec, metric)
+  #       model_type_vec <- c(model_type_vec, model_type)
+  #       value_vec <- c(value_vec, sim_out[[selection_method]][[model_type]][[metric]])
+  #       selection_method_vec <- c(selection_method_vec, selection_method)
+  #       amp_vec <- c(amp_vec, amp)
+  # 
+  #     }
+  # 
+  #   }
+  # 
+  # }
+
+  readr::write_rds(sim_out, glue::glue("rds_data/polymetric_{amp}_zhu_lp_test.rds"))
 
 }
 
@@ -110,14 +154,14 @@ value_vec <- c()
 model_type_vec <- c()
 amp_vec <- c()
 
-for (amp in seq(0, 1, .25)) {
+for (amp in seq(0, 1, length.out = 8)) {
 
   sim_data <- readr::read_rds(
-    glue::glue("rds_data/polymetric_{amp}_zhu_test.rds")
+    glue::glue("rds_data/polymetric_{amp}_zhu_lp_test.rds")
   )
   for (metric in c("mse", "power", "type_1_error")) {
 
-    for (model_type in c("GxE", "additive", "mash")) {
+    for (model_type in c("GxE", "additive")) {
 
       amp_vec <- c(amp_vec, amp)
       model_type_vec <- c(model_type_vec, model_type)
@@ -171,7 +215,7 @@ for (selection_method in c("additive", "GxE")) {
     for (amp in seq(0, 1, length.out = 8)) {
 
       sim_data <- readr::read_rds(
-        glue::glue("rds_data/polymetric_{amp}_zhu2_test.rds")
+        glue::glue("rds_data/polymetric_{amp}_zhu_lp_test.rds")
       )
 
       amp_vec <- c(amp_vec, amp)
@@ -192,14 +236,6 @@ corr_df <- data.frame(
   corr = corr_vec
 )
 
-corr_df <- corr_df %>%
-  dplyr::filter(beta_method == selection_method)
-
-corr_df <- corr_df %>%
-  dplyr::mutate(
-    selection_method = dplyr::if_else(selection_method == "mash", "all", selection_method)
-  )
-
 ggplot(data =corr_df) +
   geom_point(aes(x = amp, y = corr, color = selection_method), size = 1) +
   geom_line(aes(x = amp, y = corr, color = selection_method)) +
@@ -207,9 +243,24 @@ ggplot(data =corr_df) +
   ylab("PGS Test Set Correlation in Both Environments") +
   labs(color="Model")
 
+# Something here should get at the fact that there are two aspects to what's going on
+# one is selection and the other is estimation. 
+
+corr_df <- corr_df %>%
+  dplyr::mutate(
+    selection_method = dplyr::if_else(
+      selection_method == "additive", 
+      "Additive Pval < .1",
+      "GxE Pval < .1"
+    ),
+    beta_method = dplyr::if_else(beta_method == "additive", "Additive", "GxE")
+  )
+
 ggplot(data =corr_df) +
   geom_point(aes(x = amp, y = corr, color = selection_method), size = 1) +
   geom_line(aes(x = amp, y = corr, color = selection_method, linetype = beta_method)) +
-  xlab("Percent Amplified") +
-  ylab("Corr") +
-  scale_linetype_manual(values = c("solid", "dashed", "dotted"))
+  xlab("Percent of SNPs Amplified 2.5x in Environment 1") +
+  ylab("Test Set PGS Correlation") +
+  labs(color="Selection Criterion", linetype = "Estimate Model") +
+  ggtitle("PGS with h2 = .6 and n = 1000 in Each Environment") +
+  theme(plot.title = element_text(hjust = 0.5))
