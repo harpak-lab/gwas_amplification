@@ -646,8 +646,10 @@ select_snps_same_number <- function(GxE_models, additive_models, pval = 5e-8) {
 #'
 #' @examples
 simulate_pgs_corr_fast <- function(
-  n_e0,
-  n_e1,
+  n_e0_train,
+  n_e1_train,
+  n_e0_test,
+  n_e1_test,
   n_snps,
   maf_simulator,
   e0_h2,
@@ -656,8 +658,10 @@ simulate_pgs_corr_fast <- function(
   pi,
   num_sims = 10,
   s = 0,
-  selection_methods = c("additive", "GxE", "mash"),
-  beta_methods = c("additive", "GxE", "mash")
+  beta_methods = c("additive", "GxE", "mash", "ash_additive", "ash_GxE"),
+  selection_methods = c("additive", "GxE", "all"),
+  pval_thresh_additive = .1,
+  pval_thresh_GxE = .1
 ) {
 
   pb <- txtProgressBar(min = 0, max = num_sims, initial = 0, style = 3)
@@ -668,15 +672,10 @@ simulate_pgs_corr_fast <- function(
 
     sim_results[[selection_method]] <- list()
 
-    for (model in c("additive", "GxE")) {
+    for (beta_method in beta_methods) {
 
-      sim_results[[selection_method]][[model]] <- list()
-
-      for (metric in c("mse", "power", "type_1_error", "accuracy", "corr")) {
-
-        sim_results[[selection_method]][[model]][[metric]] <- 0
-
-      }
+      sim_results[[selection_method]][[beta_method]] <- list()
+      sim_results[[selection_method]][[beta_method]][["corr"]] <- 0
 
     }
 
@@ -690,12 +689,6 @@ simulate_pgs_corr_fast <- function(
     fx_mat <- generate_mash_fx(
       n = n_snps, p = 2, pi = pi, Sigma = Sigma, s = s
     )
-
-    n_e0_train <- ceiling(.8 * n_e0)
-    n_e0_test <- n_e0 - n_e0_train
-
-    n_e1_train <- ceiling(.8 * n_e1)
-    n_e1_test <- n_e1 - n_e1_train
 
     # simulate minor allele frequencies all at once for efficiency
     maf_vec <- do.call(maf_simulator, list(n_snps))
@@ -728,111 +721,368 @@ simulate_pgs_corr_fast <- function(
       dplyr::select(snp_names) %>%
       as.matrix()
 
+    GxE_models_e0 <- estimate_GxE_model_fast(
+      n = n_e0_train, 
+      maf_vec = maf_vec, 
+      fx_vec = fx_mat[, 1], 
+      h2 = e0_h2
+    )
+    
+    GxE_models_e1 <- estimate_GxE_model_fast(
+      n = n_e1_train, 
+      maf_vec = maf_vec, 
+      fx_vec = fx_mat[, 2], 
+      h2 = e1_h2
+    )
+    
+    GxE_models <- list(
+      est_e0 = GxE_models_e0$bhat,
+      sd_e0 = GxE_models_e0$shat,
+      pval_e0 = GxE_models_e0$pval,
+      est_e1 = GxE_models_e1$bhat,
+      sd_e1 = GxE_models_e1$shat,
+      pval_e1 = GxE_models_e1$pval
+    )
+    
+    additive_models <- list(
+      est = .5 * GxE_models$est_e0 + .5 * GxE_models$est_e1,
+      sd = sqrt(.25 * (GxE_models$sd_e0 ^ 2) + .25 * (GxE_models$sd_e1 ^ 2))
+    )
+    
+    additive_models[['pval']] <- pt(
+      -abs(additive_models$est / additive_models$sd), df = n_e0_train + n_e1_train - 2
+      ) + 
+      (1 - pt(abs(additive_models$est / additive_models$sd), df = n_e0_train + n_e1_train - 2))
 
-
+    selected_snps <- list()
+    beta_ests <- list()
+    
+    selected_snps[["GxE"]] <- matrix(
+      data = c(GxE_models$pval_e0 < pval_thresh_GxE, GxE_models$pval_e1 < pval_thresh_GxE),
+      ncol = 2
+    )
+    
+    selected_snps[["additive"]] <- matrix(
+      data = rep(additive_models$pval < pval_thresh_additive, 2), ncol = 2
+    )
+    
+    beta_ests[['additive']] <- matrix(
+      data = rep(additive_models$est, 2), ncol = 2
+    )
+    
     Bhat <- matrix(
       data = c(GxE_models$est_e0, GxE_models$est_e1), ncol = 2
     )
     Shat <- matrix(
       data = c(GxE_models$sd_e0, GxE_models$sd_e1), ncol = 2
     )
+    
+    beta_ests[['GxE']] <- Bhat
 
-    if ("mash" %in% selection_methods) {
+    if ("mash" %in% beta_methods) {
 
-      mash_model <- get_test_preds_mash(Bhat, Shat, test_df)
+      mash_model <- get_test_preds_mash(
+        Bhat, Shat, test_df, amp_range = c(1, 1.5)
+      )
+      
+      beta_ests[['mash']] <- matrix(
+        data = c(mash_model$est_e0, mash_model$est_e1),
+        ncol = 2
+      )
 
+    }
+    
+    if ("ash_additive" %in% beta_methods) {
+      
+      ash_model_add <- ashr::ash(additive_models$est, additive_models$sd)
+      post_ests_add <- ashr::get_pm(ash_model_add)
+      beta_ests[['ash_additive']] <- matrix(
+        data = rep(post_ests_add, 2), ncol = 2
+      )
+      
+    }
+    
+    if ("ash_GxE" %in% beta_methods) {
+      
+      ash_model_GxE_e0 <- ashr::ash(GxE_models$est_e0, GxE_models$sd_e0)
+      post_ests_GxE_e0 <- ashr::get_pm(ash_model_GxE_e0)
+      
+      ash_model_GxE_e1 <- ashr::ash(GxE_models$est_e1, GxE_models$sd_e1)
+      post_ests_GxE_e1 <- ashr::get_pm(ash_model_GxE_e1)
+      
+      beta_ests[['ash_GxE']] <- matrix(
+        data = c(post_ests_GxE_e0, post_ests_GxE_e1), ncol = 2
+      )
+      
     }
 
     for (selection_method in selection_methods) {
-
-      for (beta_method in selection_methods) {
-
-        est_mat_GxE <- NULL
-
-        if (selection_method == "pval") {
-
-          selections <- select_snps_pval_thresh(GxE_models, additive_models)
-
-        } else if (selection_method == "same_number") {
-
-          selections <- select_snps_same_number(GxE_models, additive_models)
-
-        } else if (selection_method == "mash") {
-
-          selections <- select_snps_mash(mash_model)
-          est_mat_GxE <- matrix(
-            data = c(mash_model$est_e0, mash_model$est_e1),
-            ncol = 2
-          )
-
+      
+      for (beta_method in beta_methods) {
+        
+        # get the correlation for each of the prediction methods
+        selected_beta_ests <- beta_ests[[beta_method]]
+        
+        if (selection_method != "all") {
+          
+          selected_beta_ests[!selected_snps[[selection_method]]] <- 0
+          
         }
 
-        est_mat_additive <- matrix(
-          data = rep(additive_models$est, 2),
-          ncol = 2
+        preds <- c(
+          test_mat_e0 %*% selected_beta_ests[, 1],
+          test_mat_e1 %*% selected_beta_ests[, 2]
         )
-
-        sel_mat_additive <- matrix(
-          data = rep(selections$additive_selection, 2),
-          ncol = 2
-        )
-
-        sel_mat_GxE <- matrix(
-          data = c(selections$e0_selection, selections$e1_selection),
-          ncol = 2
-        )
-
-        if (is.null(est_mat_GxE)) {
-
-          est_mat_GxE <- Bhat
-
-        }
-
-        additive_sel_results <- evaluate_selection(
-          fx_mat, est_mat_additive, sel_mat_additive
-        )
-
-        GxE_sel_results <- evaluate_selection(
-          fx_mat, est_mat_GxE, sel_mat_GxE
-        )
-
-        additive_selection_ests <- est_mat_additive
-        additive_selection_ests[!sel_mat_additive] <- 0
-        additive_preds <- test_mat %*% additive_selection_ests[,1]
-        additive_sel_results[['corr']] <- protected_cor(additive_preds, test_df$y)
-
-        GxE_selection_ests <- est_mat_GxE
-        GxE_selection_ests[!sel_mat_GxE] <- 0
-        GxE_preds <- c(
-          test_mat_e0 %*% GxE_selection_ests[, 1],
-          test_mat_e1 %*% GxE_selection_ests[, 2]
-        )
-
-        GxE_sel_results[['corr']] <- protected_cor(GxE_preds, test_df$y)
-
-        comb_sel_results <- list()
-        comb_sel_results[["additive"]] <- additive_sel_results
-        comb_sel_results[["GxE"]] <- GxE_sel_results
-
-        for (model in c("GxE", "additive")) {
-
-          for (metric in c("mse", "power", "type_1_error", "accuracy", "corr")) {
-
-            sim_results[[selection_method]][[model]][[metric]] <- sim_results[[selection_method]][[model]][[metric]] +
-              (1 / num_sims) * comb_sel_results[[model]][[metric]]
-
-          }
-
-        }
-
+        
+        sim_results[[selection_method]][[beta_method]][['corr']] <- sim_results[[selection_method]][[beta_method]][['corr']] +
+          (1 / num_sims) * protected_cor(preds, test_df$y)
+        
       }
-
+      
     }
 
   }
 
   return(sim_results)
 
+}
+
+#' Simulate correlation between prediction of an outcome and polygenic
+#' scores for various models
+#'
+#' @param n_e0,n_e1 number of individuals in each environment
+#' @param n_snps number of SNPs
+#' @param maf_simulator function that takes number of snps as an argument and
+#' returns minor allele frequencies for each snp
+#' @param sigma_e0,sigma_e1 additive noise standard deviation in each environment
+#' @param Sigma list of covariance matrices from which true effects are drawn
+#' @param pi vector of probabilities corresponding to Sigma
+#' @param num_sims number of simulations to run
+#' @param s (optional) level of sparsity of true effects. Defaults to 0
+#'
+#' @return
+#' @export
+#'
+#' @examples
+simulate_pgs_corr_fast_par <- function(
+    n_e0_train,
+    n_e1_train,
+    n_e0_test,
+    n_e1_test,
+    n_snps,
+    maf_simulator,
+    e0_h2,
+    e1_h2,
+    Sigma,
+    pi,
+    num_sims = 10,
+    s = 0,
+    beta_methods = c("additive", "GxE", "mash", "ash_additive", "ash_GxE"),
+    selection_methods = c("additive", "GxE", "all"),
+    pval_thresh_additive = .1,
+    pval_thresh_GxE = .1
+) {
+  
+  pb <- txtProgressBar(min = 0, max = num_sims, initial = 0, style = 3)
+  
+  sim_results <- list()
+  
+  for (selection_method in selection_methods) {
+    
+    sim_results[[selection_method]] <- list()
+    
+    for (beta_method in beta_methods) {
+      
+      sim_results[[selection_method]][[beta_method]] <- list()
+      sim_results[[selection_method]][[beta_method]][["corr"]] <- 0
+      
+    }
+    
+  }
+  
+  sim_results <- foreach(
+    i = 1:num_sims,
+    .verbose = TRUE,
+    .packages = c("gamp"),
+    .combine = "rbind"
+  ) %dopar% {
+    
+    # sample from mash prior
+    fx_mat <- generate_mash_fx(
+      n = n_snps, p = 2, pi = pi, Sigma = Sigma, s = s
+    )
+    
+    # simulate minor allele frequencies all at once for efficiency
+    maf_vec <- do.call(maf_simulator, list(n_snps))
+    
+    # obtain polygenic test data
+    polygenic_df <- simulate_polygenic_data_2env(
+      fx_mat, # true effects
+      n_e0_test,
+      n_e1_test,
+      e0_h2,
+      e1_h2,
+      maf_vec
+    )
+    
+    test_df <- polygenic_df
+    #
+    snp_names <- paste0("g", 1:n_snps)
+    #
+    test_mat <- test_df %>%
+      dplyr::select(snp_names) %>%
+      as.matrix()
+    #
+    test_mat_e0 <- test_df %>%
+      dplyr::filter(e == "e0") %>%
+      dplyr::select(snp_names) %>%
+      as.matrix()
+    #
+    test_mat_e1 <- test_df %>%
+      dplyr::filter(e == "e1") %>%
+      dplyr::select(snp_names) %>%
+      as.matrix()
+    
+    GxE_models_e0 <- estimate_GxE_model_fast(
+      n = n_e0_train, 
+      maf_vec = maf_vec, 
+      fx_vec = fx_mat[, 1], 
+      h2 = e0_h2
+    )
+    
+    GxE_models_e1 <- estimate_GxE_model_fast(
+      n = n_e1_train, 
+      maf_vec = maf_vec, 
+      fx_vec = fx_mat[, 2], 
+      h2 = e1_h2
+    )
+    
+    GxE_models <- list(
+      est_e0 = GxE_models_e0$bhat,
+      sd_e0 = GxE_models_e0$shat,
+      pval_e0 = GxE_models_e0$pval,
+      est_e1 = GxE_models_e1$bhat,
+      sd_e1 = GxE_models_e1$shat,
+      pval_e1 = GxE_models_e1$pval
+    )
+    
+    additive_models <- list(
+      est = .5 * GxE_models$est_e0 + .5 * GxE_models$est_e1,
+      sd = sqrt(.25 * (GxE_models$sd_e0 ^ 2) + .25 * (GxE_models$sd_e1 ^ 2))
+    )
+    
+    additive_models[['pval']] <- pt(
+      -abs(additive_models$est / additive_models$sd), df = n_e0_train + n_e1_train - 2
+    ) + 
+      (1 - pt(abs(additive_models$est / additive_models$sd), df = n_e0_train + n_e1_train - 2))
+    
+    selected_snps <- list()
+    beta_ests <- list()
+    
+    selected_snps[["GxE"]] <- matrix(
+      data = c(GxE_models$pval_e0 < pval_thresh_GxE, GxE_models$pval_e1 < pval_thresh_GxE),
+      ncol = 2
+    )
+    
+    selected_snps[["additive"]] <- matrix(
+      data = rep(additive_models$pval < pval_thresh_additive, 2), ncol = 2
+    )
+    
+    beta_ests[['additive']] <- matrix(
+      data = rep(additive_models$est, 2), ncol = 2
+    )
+    
+    Bhat <- matrix(
+      data = c(GxE_models$est_e0, GxE_models$est_e1), ncol = 2
+    )
+    Shat <- matrix(
+      data = c(GxE_models$sd_e0, GxE_models$sd_e1), ncol = 2
+    )
+    
+    beta_ests[['GxE']] <- Bhat
+    
+    if ("mash" %in% beta_methods) {
+      
+      mash_model <- get_test_preds_mash(
+        Bhat, Shat, test_df, amp_range = c(1, 1.5)
+      )
+      
+      beta_ests[['mash']] <- matrix(
+        data = c(mash_model$est_e0, mash_model$est_e1),
+        ncol = 2
+      )
+      
+    }
+    
+    if ("ash_additive" %in% beta_methods) {
+      
+      ash_model_add <- ashr::ash(additive_models$est, additive_models$sd)
+      post_ests_add <- ashr::get_pm(ash_model_add)
+      beta_ests[['ash_additive']] <- matrix(
+        data = rep(post_ests_add, 2), ncol = 2
+      )
+      
+    }
+    
+    if ("ash_GxE" %in% beta_methods) {
+      
+      ash_model_GxE_e0 <- ashr::ash(GxE_models$est_e0, GxE_models$sd_e0)
+      post_ests_GxE_e0 <- ashr::get_pm(ash_model_GxE_e0)
+      
+      ash_model_GxE_e1 <- ashr::ash(GxE_models$est_e1, GxE_models$sd_e1)
+      post_ests_GxE_e1 <- ashr::get_pm(ash_model_GxE_e1)
+      
+      beta_ests[['ash_GxE']] <- matrix(
+        data = c(post_ests_GxE_e0, post_ests_GxE_e1), ncol = 2
+      )
+      
+    }
+    
+    selection_method_vec <- c()
+    beta_method_vec <- c()
+    corr_vec <- c()
+    
+    for (selection_method in selection_methods) {
+      
+      for (beta_method in beta_methods) {
+        
+        # get the correlation for each of the prediction methods
+        selected_beta_ests <- beta_ests[[beta_method]]
+        
+        if (selection_method != "all") {
+          
+          selected_beta_ests[!selected_snps[[selection_method]]] <- 0
+          
+        }
+        
+        preds <- c(
+          test_mat_e0 %*% selected_beta_ests[, 1],
+          test_mat_e1 %*% selected_beta_ests[, 2]
+        )
+        
+        selection_method_vec <- c(selection_method_vec, selection_method)
+        beta_method_vec <- c(beta_method_vec, beta_method)
+        corr_vec <- c(corr_vec, protected_cor(preds, test_df$y))
+        
+      }
+      
+    }
+    
+    data.frame(
+      selection_method = selection_method_vec,
+      beta_method = beta_method_vec,
+      corr = corr_vec
+    )
+    
+  }
+  
+  sim_results <- sim_results %>% 
+    group_by(selection_method, beta_method) %>% 
+    summarize(corr = mean(corr)) %>%
+    arrange(beta_method)
+  
+  return(sim_results)
+  
 }
 
 get_selection_metrics <- function(fx_mat, selection_mat, est_mat) {
@@ -1039,7 +1289,7 @@ simulate_pgs_corr_fast_v2 <- function(
     if ("mash" %in% selection_methods) {
 
       mash_model <- get_test_preds_mash(
-        Bhat, Shat, test_df, amp_range = c(1, 3)
+        Bhat, Shat, test_df, amp_range = c(1, 1.5)
       )
       lfsr_thresh <- 1
 
@@ -1267,7 +1517,7 @@ simulate_two_part_mash_sim <- function(
         Bhat = Bhat_train,
         Shat = Shat_train,
         corr_range = seq(from = -1, to = 1, by = (1/3)),
-        amp_range = c(1.5, 2)
+        amp_range = c(2, 3)
       )
 
       mash_test <- get_test_preds_mash(
@@ -1793,21 +2043,15 @@ simulate_perf_pval <- function(
       pval_e1 = GxE_e1$pval
     )
 
-    additive_models_bhat <- (
-      (1 / GxE_e0$shat ^ 2) * GxE_e0$bhat + (1 / GxE_e1$shat ^ 2) * GxE_e1$bhat
-    ) / ((1 / GxE_e0$shat ^ 2) + (1 / GxE_e1$shat ^ 2))
-
-    additive_models_shat <- sqrt(1 / ((1 / GxE_e0$shat ^ 2) + (1 / GxE_e1$shat ^ 2)))
-
-    additive_models_pval <- pt(
-      -abs(additive_models_bhat / additive_models_shat), df = n_e0_train + n_e1_train - 2
-    ) +
-      (1 - pt(abs(additive_models_bhat / additive_models_shat), df = n_e0_train + n_e1_train - 2))
-
     additive_models <- list(
-      est = additive_models_bhat,
-      pval = additive_models_pval
+      est = .5 * GxE_models$est_e0 + .5 * GxE_models$est_e1,
+      sd = sqrt(.25 * (GxE_models$sd_e0 ^ 2) + .25 * (GxE_models$sd_e1 ^ 2))
     )
+    
+    additive_models[['pval']] <- pt(
+      -abs(additive_models$est / additive_models$sd), df = n_e0_train + n_e1_train - 2
+    ) + 
+      (1 - pt(abs(additive_models$est / additive_models$sd), df = n_e0_train + n_e1_train - 2))
 
     beta_ests <- list()
 

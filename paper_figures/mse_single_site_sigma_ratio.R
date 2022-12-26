@@ -47,7 +47,8 @@ generate_mse_tradeoff_single_site_se_ratio_plot <- function(
     theme(plot.title = element_text(hjust = 0.5)) +
     labs(fill="MSE Diff.") +
     annotate("text", x = .5, y = 1, label = "Additive Better", size = 5) +
-    annotate("text", x = 1, y = 2, label = "GxE Better", size = 5)
+    annotate("text", x = 1, y = 2, label = "GxE Better", size = 5) + 
+    theme(aspect.ratio=1)
 
 
   g2 <- ggplot(data = sim_df, aes(x = fx_diff, y = sigma_ratio, fill = bias_diff_e0)) +
@@ -62,7 +63,8 @@ generate_mse_tradeoff_single_site_se_ratio_plot <- function(
       "text", x = .25, y = 1.5,
       label = latex2exp::TeX("$Bias(Add) \\approx Bias(GxE)$"), size = 2.3
     ) +
-    annotate("text", x = 1.25, y = 1.5, label = "Bias(Add) > Bias(GxE)", size = 2.4)
+    annotate("text", x = 1.25, y = 1.5, label = "Bias(Add) > Bias(GxE)", size = 2.4) +
+    theme(aspect.ratio=1)
 
   g3 <- ggplot(data = sim_df, aes(x = fx_diff, y = sigma_ratio, fill = var_diff_e0)) +
     geom_tile() +
@@ -74,7 +76,8 @@ generate_mse_tradeoff_single_site_se_ratio_plot <- function(
     labs(fill="Var Diff.") +
     annotate("text", x = .75, y = 2.25, label = "Var(GxE) > Var(Add)", size = 5) +
     annotate("text", x = .75, y = .75,
-             label = "Var(GxE) < Var(Add)", size = 5)
+             label = "Var(GxE) < Var(Add)", size = 5) +
+    theme(aspect.ratio=1)
 
 
   return(
