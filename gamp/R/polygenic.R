@@ -664,8 +664,6 @@ simulate_pgs_corr_fast <- function(
   pval_thresh_GxE = .1
 ) {
 
-  pb <- txtProgressBar(min = 0, max = num_sims, initial = 0, style = 3)
-
   sim_results <- list()
 
   for (selection_method in selection_methods) {
@@ -682,8 +680,6 @@ simulate_pgs_corr_fast <- function(
   }
 
   for (i in 1:num_sims) {
-
-    setTxtProgressBar(pb, i)
 
     # sample from mash prior
     fx_mat <- generate_mash_fx(
@@ -782,7 +778,7 @@ simulate_pgs_corr_fast <- function(
     if ("mash" %in% beta_methods) {
 
       mash_model <- get_test_preds_mash(
-        Bhat, Shat, test_df, amp_range = c(1, 1.5)
+        Bhat, Shat, test_df, amp_range = c(1.5, 2, 3)
       )
       
       beta_ests[['mash']] <- matrix(
@@ -1172,8 +1168,10 @@ get_selection_metrics_bucketed <- function(fx_mat, selection_mat, est_mat) {
 #'
 #' @examples
 simulate_pgs_corr_fast_v2 <- function(
-  n_e0,
-  n_e1,
+  n_e0_train,
+  n_e1_train,
+  n_e0_test,
+  n_e1_test,
   n_snps,
   maf_simulator,
   e0_h2,
@@ -1182,12 +1180,10 @@ simulate_pgs_corr_fast_v2 <- function(
   pi,
   num_sims = 10,
   s = 0,
-  selection_methods = c("additive", "GxE", "mash"),
-  pval_thresh_additive = 5e-8,
-  pval_thresh_GxE = 5e-8
+  selection_methods = c("additive", "GxE", "none"),
+  beta_methods = c("additive", "GxE", "mash"),
+  pval_thresh = 5e-8
 ) {
-
-  pb <- txtProgressBar(min = 0, max = num_sims, initial = 0, style = 3)
 
   sim_results <- list()
 
@@ -1195,13 +1191,7 @@ simulate_pgs_corr_fast_v2 <- function(
 
     sim_results[[selection_method]] <- list()
 
-    for (metric in c("power", "type_1_error", "accuracy", "mse")) {
-
-      sim_results[[selection_method]][[metric]] <- 0
-
-    }
-
-    for (beta_method in selection_methods) {
+    for (beta_method in beta_methods) {
 
       sim_results[[selection_method]][[beta_method]] <- list()
 
@@ -1212,8 +1202,6 @@ simulate_pgs_corr_fast_v2 <- function(
   }
 
   for (i in 1:num_sims) {
-
-    setTxtProgressBar(pb, i)
 
     # sample from mash prior
     fx_mat <- generate_mash_fx(
@@ -1378,6 +1366,7 @@ simulate_two_part_mash_sim <- function(
   s_test,
   e0_h2,
   e1_h2,
+  cov_mats = NULL,
   num_sims = 10,
   selection_methods = c("additive", "GxE", "mash"),
   pval_thresh_additive = 5e-8,
@@ -1389,14 +1378,6 @@ simulate_two_part_mash_sim <- function(
   sim_results <- list()
 
   for (selection_method in selection_methods) {
-
-    sim_results[[selection_method]] <- list()
-
-    for (metric in c("power", "type_1_error", "accuracy", "mse")) {
-
-      sim_results[[selection_method]][[metric]] <- 0
-
-    }
 
     for (beta_method in selection_methods) {
 
@@ -1423,37 +1404,20 @@ simulate_two_part_mash_sim <- function(
 
     # simulate minor allele frequencies all at once for efficiency
     maf_vec_train <- do.call(maf_simulator_train, list(n_snps_train))
-
-    # obtain polygenic data
-    polygenic_df_train <- simulate_polygenic_data_2env(
-      fx_mat_train, # true effects
-      n_e0_train,
-      n_e1_train,
-      e0_h2,
-      e1_h2,
-      maf_vec_train
-    )
-
-    train_df <- polygenic_df_train
-
     maf_vec_test <- do.call(maf_simulator_test, list(n_snps_test))
 
-    polygenic_df_test <- simulate_polygenic_data_2env(
+    ## 75% of the sample size
+    n_e0_test_train <- floor(0.75 * n_e0_test)
+    n_e1_test_train <- floor(0.75 * n_e1_test)
+    
+    test_test_df <- simulate_polygenic_data_2env(
       fx_mat_test, # true effects
-      n_e0_test,
-      n_e1_test,
+      n_e0_test - n_e0_test_train,
+      n_e1_test - n_e1_test_train,
       e0_h2,
       e1_h2,
       maf_vec_test
     )
-
-    ## 80% of the sample size
-    smp_size <- floor(0.75 * (n_e0_test + n_e1_test))
-
-    test_train_ind <- sample(seq_len(n_e0_test + n_e1_test), size = smp_size)
-
-    test_train_df <- polygenic_df_test[test_train_ind, ]
-    test_test_df <- polygenic_df_test[-test_train_ind, ]
 
     snp_names <- paste0("g", 1:n_snps_test)
 
@@ -1471,10 +1435,46 @@ simulate_two_part_mash_sim <- function(
       dplyr::select(snp_names) %>%
       as.matrix()
 
+    GxE_e0_train <- estimate_GxE_model_fast(n_e0_train, maf_vec_train, fx_mat_train[,1], e0_h2)
+    GxE_e1_train <- estimate_GxE_model_fast(n_e1_train, maf_vec_train, fx_mat_train[,2], e1_h2)
+    
+    GxE_models_train <- list(
+      est_e0 = GxE_e0_train$bhat,
+      sd_e0 = GxE_e0_train$shat,
+      pval_e0 = GxE_e0_train$pval,
+      est_e1 = GxE_e1_train$bhat,
+      sd_e1 = GxE_e1_train$shat,
+      pval_e1 = GxE_e1_train$pval
+    )
+    
+    GxE_e0_test <- estimate_GxE_model_fast(n_e0_test_train, maf_vec_test, fx_mat_test[,1], e0_h2)
+    GxE_e1_test <- estimate_GxE_model_fast(n_e1_test_train, maf_vec_test, fx_mat_test[,2], e1_h2)
+    
+    GxE_models_test <- list(
+      est_e0 = GxE_e0_test$bhat,
+      sd_e0 = GxE_e0_test$shat,
+      pval_e0 = GxE_e0_test$pval,
+      est_e1 = GxE_e1_test$bhat,
+      sd_e1 = GxE_e1_test$shat,
+      pval_e1 = GxE_e1_test$pval
+    )
+    
+    additive_models_test <- list(
+      est = .5 * GxE_models_test$est_e0 + .5 * GxE_models_test$est_e1,
+      sd = sqrt(.25 * (GxE_models_test$sd_e0 ^ 2) + .25 * (GxE_models_test$sd_e1 ^ 2))
+    )
+    
+    additive_models_test[['pval']] <- pt(
+      -abs(additive_models_test$est / additive_models_test$sd), 
+      df = n_e0_test_train + n_e1_test_train - 2
+    ) + 
+      (1 - pt(abs(additive_models_test$est / additive_models_test$sd), 
+              df = n_e0_test_train + n_e1_test_train - 2))
+    
     # Estimate models on training and test sets
-    GxE_models_train <- estimate_GxE_models(train_df)
-    GxE_models_test <- estimate_GxE_models(test_train_df)
-    additive_models_test <- estimate_additive_models(test_train_df)
+    # GxE_models_train <- estimate_GxE_models(train_df)
+    # GxE_models_test <- estimate_GxE_models(test_train_df)
+    # additive_models_test <- estimate_additive_models(test_train_df)
 
     selected_snps <- list()
     beta_ests <- list()
@@ -1505,7 +1505,7 @@ simulate_two_part_mash_sim <- function(
     Bhat_test <- matrix(
       data = c(GxE_models_test$est_e0, GxE_models_test$est_e1), ncol = 2
     )
-    Shat_test<- matrix(
+    Shat_test <- matrix(
       data = c(GxE_models_test$sd_e0, GxE_models_test$sd_e1), ncol = 2
     )
 
@@ -1513,12 +1513,25 @@ simulate_two_part_mash_sim <- function(
 
     if ("mash" %in% selection_methods) {
 
-      mash_train <- fit_mash_gwas_2env(
-        Bhat = Bhat_train,
-        Shat = Shat_train,
-        corr_range = seq(from = -1, to = 1, by = (1/3)),
-        amp_range = c(2, 3)
-      )
+      if (is.null(cov_mats)) {
+        
+        mash_train <- fit_mash_gwas_2env(
+          Bhat = Bhat_train,
+          Shat = Shat_train,
+          corr_range = seq(from = -1, to = 1, by = (1/3)),
+          amp_range = c(1.5, 2, 3)
+        )
+        
+      } else {
+        
+        mash_train <- fit_mash_gwas_2env(
+          Bhat = Bhat_train,
+          Shat = Shat_train,
+          cov_mats = cov_mats
+        )
+        
+      }
+
 
       mash_test <- get_test_preds_mash(
         Bhat_test, Shat_test, test_test_df, fitted_g = ashr::get_fitted_g(mash_train)
@@ -1540,17 +1553,6 @@ simulate_two_part_mash_sim <- function(
     }
 
     for (selection_method in selection_methods) {
-
-      selection_metrics <- get_selection_metrics(
-        fx_mat_test, selected_snps[[selection_method]], beta_ests[[selection_method]]
-      )
-
-      for (metric in c("power", "type_1_error", "accuracy", "mse")) {
-
-        sim_results[[selection_method]][[metric]] <- sim_results[[selection_method]][[metric]] +
-          (1 / num_sims) * selection_metrics[[metric]]
-
-      }
 
       for (beta_method in selection_methods) {
 
@@ -2694,4 +2696,91 @@ simulate_ascertainment_fast <- function(
 
   return(results_list)
 
+}
+
+get_gwas_sum_stats <- function(
+    n_e0,
+    n_e1,
+    n_snps,
+    maf_simulator,
+    e0_h2,
+    e1_h2,
+    Sigma,
+    pi,
+    s,
+    algorithm_version = c("fast", "slow")
+) {
+  
+  algorithm_version = match.arg(algorithm_version)
+  
+  fx_mat <- generate_mash_fx(
+    n = n_snps, p = 2, pi = pi, Sigma = Sigma, s = s
+  )
+  
+  maf_vec <- do.call(maf_simulator, list(n_snps))
+  
+  if (algorithm_version == "fast") {
+  
+    GxE_models_e0 <- estimate_GxE_model_fast(
+      n = n_e0, 
+      maf_vec = maf_vec, 
+      fx_vec = fx_mat[, 1], 
+      h2 = e0_h2
+    )
+    
+    GxE_models_e1 <- estimate_GxE_model_fast(
+      n = n_e1, 
+      maf_vec = maf_vec, 
+      fx_vec = fx_mat[, 2], 
+      h2 = e1_h2
+    )
+    
+    GxE_models <- data.frame(
+      est_e0 = GxE_models_e0$bhat,
+      sd_e0 = GxE_models_e0$shat,
+      pval_e0 = GxE_models_e0$pval,
+      est_e1 = GxE_models_e1$bhat,
+      sd_e1 = GxE_models_e1$shat,
+      pval_e1 = GxE_models_e1$pval
+    )
+    
+    GxE_models <- GxE_models %>%
+      dplyr::mutate(
+        add_est = .5 * est_e0 + .5 * est_e1,
+        add_sd = sqrt(.25 * (sd_e0 ^ 2) + .25 * (sd_e1 ^ 2)),
+        add_pval = pt(
+          -abs(add_est / add_sd), df = n_e0 + n_e1 - 2
+        ) + 
+          (1 - pt(abs(add_est / add_sd), df = n_e0 + n_e1 - 2))
+      )
+    
+  } else if (algorithm_version == "slow") {
+    
+    polygenic_df <- simulate_polygenic_data_2env(
+      fx_mat, # true effects
+      n_e0,
+      n_e1,
+      e0_h2,
+      e1_h2,
+      maf_vec
+    )
+    
+    GxE_models <- data.frame(estimate_GxE_models(polygenic_df))
+    
+    add_models <- estimate_additive_models(polygenic_df)
+    
+    GxE_models <- GxE_models %>%
+      dplyr::mutate(add_est = add_models$est, add_pval = add_models$pval)
+    
+  }
+  
+  GxE_models <- GxE_models %>%
+    dplyr::mutate(
+      true_e0 = fx_mat[, 1],
+      true_e1 = fx_mat[, 2],
+      mixt_comp = fx_mat[, 3]
+    )
+  
+  return(GxE_models)
+  
 }

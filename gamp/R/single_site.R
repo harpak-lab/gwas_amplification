@@ -753,3 +753,184 @@ get_sigma_ratio_line <- function(sigma_ratio) {
 
 
 }
+
+# Here, want to build a simulation where I can set a true difference in effects
+# and then I can vary the noise
+# as I vary the noise, we will see that as the estimated difference in effects is larger
+# the decision rule will shift
+sim_beta_hat_diff <- function(diff_range, sd_range, pts_per_sim) {
+  
+  '%>%' <- magrittr::'%>%'
+  sim_df <- expand.grid(diff_range, sd_range)
+  colnames(sim_df) <- c("diff", "sd")
+  sim_df <- sim_df %>%
+    dplyr::mutate(e0_fx = 0, e1_fx = diff)
+  
+  sim_df <- do.call("rbind", replicate(pts_per_sim, sim_df, simplify = FALSE))
+  
+  e0_mles <- rnorm(
+    n = nrow(sim_df), 
+    sd = sim_df$sd,
+    mean = sim_df$e0_fx
+  )
+  
+  e1_mles <- rnorm(
+    n = nrow(sim_df),
+    sd = sim_df$sd,
+    mean = sim_df$e1_fx
+  )
+  
+  add_mles <- .5 * (e0_mles + e1_mles)
+  
+  sim_df <- sim_df %>% 
+    dplyr::mutate(
+      e0_est = e0_mles,
+      e1_est = e1_mles,
+      add_est = add_mles
+  )
+  
+  ash_subset <- sim_df %>%
+    dplyr::select(
+      e0_est, e1_est, add_est, sd
+    ) %>%
+    dplyr::sample_n(min(100000, nrow(sim_df)))
+
+  ash_model <- ashr::ash(
+    betahat = ash_subset$e1_est - ash_subset$e0_est,
+    sebetahat = sqrt(2) * ash_subset$sd,
+    mixcompdist = "normal"
+  )
+
+  g_fit <- ashr::get_fitted_g(ash_model)
+  g_fit$pi <- rep(0, length(g_fit$pi))
+  g_fit$pi[1] <- .5
+  g_fit$pi[4] <- .25
+  g_fit$pi[17] <- .25
+  
+  ash_posteriors <- ashr::ash(
+    betahat = sim_df$e1_est - sim_df$e0_est,
+    sebetahat = sqrt(2) * sim_df$sd,
+    fixg = TRUE,
+    g = g_fit,
+    outputlevel = 1
+  )
+  
+  sim_df <- sim_df %>%
+    dplyr::mutate(
+      e0_GxE_error = (e0_est - e0_fx) ^ 2,
+      e1_GxE_error = (e1_est - e1_fx) ^ 2,
+      e0_add_error = (add_est - e0_fx) ^ 2,
+      e1_add_error = (add_est - e1_fx) ^ 2,
+      abs_beta_hat_diff = abs(e1_est - e0_est),
+      abs_beta_hat_diff_bc = pmax(0, abs(e1_est - e0_est) - sqrt(4 / pi) * sd),
+      ash_beta_diff = abs(ashr::get_pm(ash_posteriors)),
+      ash_beta_diff_sd = ashr::get_psd(ash_posteriors)
+    )
+  
+  ash_diff_sim_df <- sim_df %>%
+    dplyr::filter(
+      ash_beta_diff <= .3
+    )
+  
+  # exclude all points with a beta hat diff more than 2
+  beta_hat_diff_sim_df <- sim_df %>%
+    dplyr::filter(abs_beta_hat_diff <= 1.5)
+  
+  beta_hat_bc_sim_df <- sim_df %>%
+    dplyr::filter(abs_beta_hat_diff_bc < 1)
+  
+  beta_hat_diff_sim_df <- beta_hat_diff_sim_df %>%
+    dplyr::mutate(
+      percentile = cut(
+        abs_beta_hat_diff,
+        seq(0, 1.6, length.out = 100),
+        include.lowest = TRUE,
+        labels = FALSE
+      )
+    )
+  
+  beta_hat_bc_sim_df <- beta_hat_bc_sim_df %>%
+    dplyr::mutate(
+      percentile = cut(
+        abs_beta_hat_diff_bc,
+        seq(0, 1, length.out = 100),
+        include.lowest = TRUE,
+        labels = FALSE
+      )
+    )
+  
+  # ash_diff_sim_df <- ash_diff_sim_df %>%
+  #   dplyr::mutate(
+  #     percentile = cut(
+  #       ash_beta_diff,
+  #       seq(0, .3, length.out = 50),
+  #       include.lowest = TRUE,
+  #       labels = FALSE
+  #     )
+  #   )
+  
+  # ash_diff_sim_df <- ash_diff_sim_df %>%
+  #   dplyr::mutate(
+  #     percentile_sd = cut(
+  #       ash_beta_diff_sd,
+  #       seq(0.25, 0.55, length.out = 50),
+  #       include.lowest = TRUE,
+  #       labels = FALSE
+  #     )
+  #   )
+  
+  beta_hat_diff_sim_df <- beta_hat_diff_sim_df %>%
+    dplyr::mutate(
+      mean_abs_diff = seq(0, 1.5, length.out = 100)[percentile]
+    )
+  
+  beta_hat_bc_sim_df <- beta_hat_bc_sim_df %>%
+    dplyr::mutate(
+      mean_abs_bc_diff = seq(0, 1, length.out = 100)[percentile]
+    )
+  
+  # ash_diff_sim_df <- ash_diff_sim_df %>%
+  #   dplyr::mutate(
+  #     mean_ash_diff = seq(0, .3, length.out = 50)[percentile]
+  #     #mean_ash_sd_diff = seq(0.25, 0.55, length.out = 50)[percentile_sd]
+  #   )
+  
+  beta_hat_diff_sum_sim_df <- beta_hat_diff_sim_df %>%
+    dplyr::group_by(sd, mean_abs_diff) %>%
+    dplyr::summarize(
+      e0_GxE_mse = mean(e0_GxE_error),
+      e1_GxE_mse = mean(e1_GxE_error),
+      e0_add_mse = mean(e0_add_error),
+      e1_add_mse = mean(e1_add_error),
+      sample_size = dplyr::n()
+    )
+  
+  beta_hat_bc_sum_sim_df <- beta_hat_bc_sim_df %>%
+    dplyr::group_by(sd, mean_abs_bc_diff) %>%
+    dplyr::summarize(
+      e0_GxE_mse = mean(e0_GxE_error),
+      e1_GxE_mse = mean(e1_GxE_error),
+      e0_add_mse = mean(e0_add_error),
+      e1_add_mse = mean(e1_add_error),
+      sample_size = dplyr::n()
+    )
+  
+  # ash_diff_sum_sim_df <- ash_diff_sim_df %>%
+  #   dplyr::group_by(sd, mean_ash_diff) %>%
+  #   dplyr::summarize(
+  #     e0_GxE_mse = mean(e0_GxE_error),
+  #     e1_GxE_mse = mean(e1_GxE_error),
+  #     e0_add_mse = mean(e0_add_error),
+  #     e1_add_mse = mean(e1_add_error),
+  #     sample_size = dplyr::n()
+  #   )
+  
+  return(
+    list(
+      beta_hat_diff_df = beta_hat_diff_sum_sim_df,
+      beta_hat_bc_sum_sim_df = beta_hat_bc_sum_sim_df
+    )
+   )
+  
+}
+
