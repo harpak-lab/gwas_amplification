@@ -42,9 +42,6 @@ returns minor allele frequencies for each snp}
 
 \item{sigma_e0, sigma_e1}{additive noise standard deviation in each environment}
 }
-\value{
-
-}
 \description{
 Simulate correlation between prediction of an outcome and polygenic
 scores for various models

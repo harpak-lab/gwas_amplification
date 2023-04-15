@@ -6,8 +6,10 @@
 scores for various models}
 \usage{
 simulate_pgs_corr_fast_v2(
-  n_e0,
-  n_e1,
+  n_e0_train,
+  n_e1_train,
+  n_e0_test,
+  n_e1_test,
   n_snps,
   maf_simulator,
   e0_h2,
@@ -16,14 +18,12 @@ simulate_pgs_corr_fast_v2(
   pi,
   num_sims = 10,
   s = 0,
-  selection_methods = c("additive", "GxE", "mash"),
-  pval_thresh_additive = 5e-08,
-  pval_thresh_GxE = 5e-08
+  selection_methods = c("additive", "GxE", "none"),
+  beta_methods = c("additive", "GxE", "mash"),
+  pval_thresh = 5e-08
 )
 }
 \arguments{
-\item{n_e0, n_e1}{number of individuals in each environment}
-
 \item{n_snps}{number of SNPs}
 
 \item{maf_simulator}{function that takes number of snps as an argument and
@@ -37,10 +37,9 @@ returns minor allele frequencies for each snp}
 
 \item{s}{(optional) level of sparsity of true effects. Defaults to 0}
 
-\item{sigma_e0, sigma_e1}{additive noise standard deviation in each environment}
-}
-\value{
+\item{n_e0, n_e1}{number of individuals in each environment}
 
+\item{sigma_e0, sigma_e1}{additive noise standard deviation in each environment}
 }
 \description{
 Simulate correlation between prediction of an outcome and polygenic

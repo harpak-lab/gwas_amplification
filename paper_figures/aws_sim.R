@@ -1,170 +1,59 @@
-set.seed(8675309)
+# Here, I want to make a lower power and high power version of the figure
+# I think that I can do 2x amplification
+# but I don't want to hard code anything
+# I can build a script that takes in the following arguments
+# (1) number of individuals
+# (2) number of snps
+# (3) heritability
+# (4) quantity of amplification
+# (5) percentage of amplification
+# (6) Number of simulations
+
+command_args = commandArgs(trailingOnly = TRUE)
+n_individuals = as.integer(command_args[1])
+n_snps = as.integer(command_args[2])
+heritability = as.integer(command_args[3])
+amp_coef = as.integer(command_args[4])
+amp_perc = as.integer(command_args[5])
+n_sims = as.integer(command_args[6])
+
+set.seed(1)
 '%>%' <- magrittr::'%>%'
-library(doParallel)
 
 Sigma <- list()
 Sigma[[1]] <- matrix(data = 1, nrow = 2, ncol = 2)
-Sigma[[2]] <- matrix(data = c(2.5, sqrt(2.5), sqrt(2.5), 1), ncol = 2)
+Sigma[[2]] <- (1 / amp_coef) * gamp:::make_amp_cov_mat(
+  desired_corr = 1, 
+  amp_coef = amp_coef
+)
 
 maf_simulator <- function(n) {
   
-  pmax(pmin(rbeta(n, .5, 10), .5 - 1e-05), 1e-5)
+  pmax(pmin(rbeta(n, .5, 10), .5 - 1e-05), 5e-3)
   
 }
 
-n.cores <- parallel::detectCores() 
-my.cluster <- parallel::makeCluster(
-  n.cores,
-  type = "PSOCK",
-  outfile = ""
-)
-
-doParallel::registerDoParallel(cl = my.cluster)
-
-# metric_vec <- c()
-# model_type_vec <- c()
-# selection_method_vec <- c()
-# value_vec <- c()
-# amp_vec <- c()
-
-amp_vec <- seq(0, 1, length.out = 8)
-
-sim_out_list <- foreach::foreach(
-  i = 1:length(amp_vec),
-  .packages = c("gamp"),
-  .verbose = T
-) %do% {
-  
-  gamp::simulate_pgs_corr_fast_v2(
-    n_e0 = 500000,
-    n_e1 = 500000,
-    n_snps = 10000,
+sim_out_list <- gamp::simulate_pgs_corr_fast(
+    n_e0_train = n_individuals,
+    n_e1_train = n_individuals,
+    n_e0_test = 3000,
+    n_e1_test = 3000,
+    n_snps = n_snps,
     maf_simulator,
-    e0_h2 = .25,
-    e1_h2 = .25,
+    e0_h2 = heritability,
+    e1_h2 = heritability,
     Sigma = Sigma,
-    pi = c(1 - amp_vec[i], amp_vec[i]),
-    num_sims = 1,
+    pi = c(1 - amp_pct, amp_pct),
+    num_sims = n_sims,
     s = .5,
     pval_thresh_additive = .05,
     pval_thresh_GxE = .05,
     selection_methods = c("additive", "GxE")
-  )
+)
   
-}
-
-for (i in 1:length(amp_vec)) {
-  
-  readr::write_rds(sim_out_list[[i]], glue::glue("rds_data/polymetric_{amp_vec[i]}_zhu_hp_test.rds"))
-  
-}
-
-# corr_vec <- c()
-# amp_vec <- c()
-# selection_method_vec <- c()
-# beta_method_vec <- c()
-# 
-# for (selection_method in c("additive", "GxE")) {
-#   
-#   for (beta_method in c("additive", "GxE")) {
-#     
-#     for (amp in seq(0, 1, length.out = 8)) {
-#       
-#       sim_data <- readr::read_rds(
-#         glue::glue("rds_data/polymetric_{amp}_zhu_hp_test.rds")
-#       )
-#       
-#       amp_vec <- c(amp_vec, amp)
-#       selection_method_vec <- c(selection_method_vec, selection_method)
-#       beta_method_vec <- c(beta_method_vec, beta_method)
-#       corr_vec <- c(corr_vec, sim_data[[selection_method]][[beta_method]][['corr']])
-#       
-#     }
-#     
-#   }
-#   
-# }
-# 
-# corr_df_hp <- data.frame(
-#   selection_method = selection_method_vec,
-#   beta_method = beta_method_vec,
-#   amp = amp_vec,
-#   corr = corr_vec
-# )
-# 
-# corr_df_hp <- corr_df_hp %>%
-#   dplyr::mutate(
-#     selection_method = dplyr::if_else(
-#       selection_method == "additive", 
-#       "Additive Pval < .05",
-#       "GxE Pval < .05"
-#     ),
-#     beta_method = dplyr::if_else(beta_method == "additive", "Additive", "GxE")
-#   )
-# 
-# 
-# hp_plot <- ggplot(data =corr_df_hp) +
-#   geom_point(aes(x = amp, y = corr, color = selection_method), size = 1) +
-#   geom_line(aes(x = amp, y = corr, color = selection_method, linetype = beta_method)) +
-#   xlab("Percent of SNPs Amplified 2.5x in Environment 1") +
-#   ylab("Test Set PGS Correlation") +
-#   labs(color="Selection Criterion", linetype = "Estimate Model") +
-#   ggtitle("PGS with h2 = .6 and n = 40,000 in Each Environment") +
-#   theme(plot.title = element_text(hjust = 0.5))
-# 
-# corr_vec <- c()
-# amp_vec <- c()
-# selection_method_vec <- c()
-# beta_method_vec <- c()
-# 
-# for (selection_method in c("additive", "GxE")) {
-#   
-#   for (beta_method in c("additive", "GxE")) {
-#     
-#     for (amp in seq(0, 1, length.out = 8)) {
-#       
-#       sim_data <- readr::read_rds(
-#         glue::glue("rds_data/polymetric_{amp}_zhu_lp_test.rds")
-#       )
-#       
-#       amp_vec <- c(amp_vec, amp)
-#       selection_method_vec <- c(selection_method_vec, selection_method)
-#       beta_method_vec <- c(beta_method_vec, beta_method)
-#       corr_vec <- c(corr_vec, sim_data[[selection_method]][[beta_method]][['corr']])
-#       
-#     }
-#     
-#   }
-#   
-# }
-# 
-# corr_df_lp <- data.frame(
-#   selection_method = selection_method_vec,
-#   beta_method = beta_method_vec,
-#   amp = amp_vec,
-#   corr = corr_vec
-# )
-# 
-# # Something here should get at the fact that there are two aspects to what's going on
-# # one is selection and the other is estimation. 
-# 
-# corr_df_lp <- corr_df_lp %>%
-#   dplyr::mutate(
-#     selection_method = dplyr::if_else(
-#       selection_method == "additive", 
-#       "Additive Pval < .1",
-#       "GxE Pval < .1"
-#     ),
-#     beta_method = dplyr::if_else(beta_method == "additive", "Additive", "GxE")
-#   )
-# 
-# lp_plot <- ggplot(data =corr_df_lp) +
-#   geom_point(aes(x = amp, y = corr, color = selection_method), size = 1) +
-#   geom_line(aes(x = amp, y = corr, color = selection_method, linetype = beta_method)) +
-#   xlab("Percent of SNPs Amplified 2.5x in Environment 1") +
-#   ylab("Test Set PGS Correlation") +
-#   labs(color="Selection Criterion", linetype = "Estimate Model") +
-#   ggtitle("PGS with h2 = .6 and n = 1,000 in Each Environment") +
-#   theme(plot.title = element_text(hjust = 0.5))
-# 
-# ggpubr::ggarrange(lp_plot, hp_plot)
+readr::write_rds(
+  sim_out_list, 
+  glue::glue("pgs_sim_n_{n_individuals}_n_snps_{n_snps}_h2",
+             "_{heritability}_amp_coef_{amp_coef}_amp_perc_",
+             "{amp_perc}_n_sims_{n_sims}.rds")
+)

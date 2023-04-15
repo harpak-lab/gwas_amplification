@@ -22,6 +22,7 @@ simulate_two_part_mash_sim(
   s_test,
   e0_h2,
   e1_h2,
+  cov_mats = NULL,
   num_sims = 10,
   selection_methods = c("additive", "GxE", "mash"),
   pval_thresh_additive = 5e-08,
@@ -45,9 +46,6 @@ returns minor allele frequencies for each snp}
 \item{pi}{vector of probabilities corresponding to Sigma}
 
 \item{s}{(optional) level of sparsity of true effects. Defaults to 0}
-}
-\value{
-
 }
 \description{
 Simulate correlation between prediction of an outcome and polygenic

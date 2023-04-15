@@ -4,7 +4,14 @@
 \alias{fit_mash_gwas_2env}
 \title{Fit mash to 2 Environment GWAS Data}
 \usage{
-fit_mash_gwas_2env(Bhat, Shat, corr_range, amp_range, fitted_g = NULL)
+fit_mash_gwas_2env(
+  Bhat,
+  Shat,
+  cov_mats = NULL,
+  corr_range = NULL,
+  amp_range = NULL,
+  fitted_g = NULL
+)
 }
 \arguments{
 \item{Bhat}{n x 2 matrix of estimated effect sizes}
