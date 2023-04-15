@@ -16,12 +16,11 @@ simulate_pgs_corr_fast(
   e1_h2,
   Sigma,
   pi,
+  n_ascertained_snps,
   num_sims = 10,
   s = 0,
   beta_methods = c("additive", "GxE", "mash", "ash_additive", "ash_GxE"),
-  selection_methods = c("additive", "GxE", "all"),
-  pval_thresh_additive = 0.1,
-  pval_thresh_GxE = 0.1
+  selection_methods = c("additive", "GxE", "all")
 )
 }
 \arguments{

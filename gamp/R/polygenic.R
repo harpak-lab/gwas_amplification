@@ -656,12 +656,11 @@ simulate_pgs_corr_fast <- function(
   e1_h2,
   Sigma,
   pi,
+  n_ascertained_snps,
   num_sims = 10,
   s = 0,
   beta_methods = c("additive", "GxE", "mash", "ash_additive", "ash_GxE"),
-  selection_methods = c("additive", "GxE", "all"),
-  pval_thresh_additive = .1,
-  pval_thresh_GxE = .1
+  selection_methods = c("additive", "GxE", "all")
 ) {
 
   sim_results <- list()
@@ -753,13 +752,25 @@ simulate_pgs_corr_fast <- function(
     selected_snps <- list()
     beta_ests <- list()
     
+    sorted_pvals_GxE_e0 <- sort(GxE_models$pval_e0)
+    sorted_pvals_GxE_e1 <- sort(GxE_models$pval_e1)
+    
+    pval_thresh_GxE_e0 <- sorted_pvals_GxE_e0[n_ascertained_snps]
+    pval_thresh_GxE_e1 <- sorted_pvals_GxE_e1[n_ascertained_snps]
+    
     selected_snps[["GxE"]] <- matrix(
-      data = c(GxE_models$pval_e0 < pval_thresh_GxE, GxE_models$pval_e1 < pval_thresh_GxE),
+      data = c(
+        GxE_models$pval_e0 <= pval_thresh_GxE_e0,
+        GxE_models$pval_e1 <= pval_thresh_GxE_e1
+      ),
       ncol = 2
     )
     
+    sorted_pvals_additive <- sort(additive_models$pval)
+    pval_thresh_additive <- sorted_pvals_additive[n_ascertained_snps]
+    
     selected_snps[["additive"]] <- matrix(
-      data = rep(additive_models$pval < pval_thresh_additive, 2), ncol = 2
+      data = rep(additive_models$pval <= pval_thresh_additive, 2), ncol = 2
     )
     
     beta_ests[['additive']] <- matrix(
@@ -775,7 +786,7 @@ simulate_pgs_corr_fast <- function(
     
     beta_ests[['GxE']] <- Bhat
 
-    if ("mash" %in% beta_methods) {
+    if ("mash" %in% beta_methods || "mash" %in% selection_methods) {
 
       mash_model <- get_test_preds_mash(
         Bhat, Shat, test_df, amp_range = c(1.5, 2, 3)
@@ -783,6 +794,20 @@ simulate_pgs_corr_fast <- function(
       
       beta_ests[['mash']] <- matrix(
         data = c(mash_model$est_e0, mash_model$est_e1),
+        ncol = 2
+      )
+      
+      sorted_lfsr_e0 <- sort(mash_model$lfsr_e0)
+      sorted_lfsr_e1 <- sort(mash_model$lfsr_e1)
+      
+      lfsr_thresh_e0 <- sorted_lfsr_e0[n_ascertained_snps]
+      lfsr_thresh_e1 <- sorted_lfsr_e1[n_ascertained_snps]
+      
+      selected_snps[["mash"]] <- matrix(
+        data = c(
+          mash_model$lfsr_e0 <= lfsr_thresh_e0,
+          mash_model$lfsr_e1 <= lfsr_thresh_e1
+        ),
         ncol = 2
       )
 
