@@ -170,13 +170,13 @@ generate_multi_ratio_plot <- function() {
                          labels = seq(-.65, .25, .15)) +
     ylab("Ratio of Environmental Standard Errors") +
     xlab("Difference in Environment Specific Effects (au)") +
-    ggtitle("Environmental Noise Ratio = 1") +
+    ggtitle("Equal Estimation Noise") +
     annotate("text", x = .4, y = .7, label = "additive better", size = 5.5) +
     annotate("text", x = .75, y = .15, label = "GxE better", size = 5.5) +
     geom_segment(
       aes(x = .001, y = 0.001, xend = 1, yend = 1/sqrt(2)), linetype = "dashed"
     ) +
-    theme(plot.title = element_text(hjust = 0.5)) +
+    theme(plot.title = element_text(hjust = 0.5, size = 11)) +
     labs(fill="MSE Difference\n(additive - GxE)") +
     theme(aspect.ratio=1, legend.title=element_text(size=14))
   
@@ -187,13 +187,13 @@ generate_multi_ratio_plot <- function() {
                          labels = seq(-.65, .25, .15)) +
     ylab("Ratio of Environmental Standard Errors") +
     xlab("Difference in Environment Specific Effects (au)") +
-    ggtitle("Environmental Noise Ratio = 2") +
+    ggtitle("Higher Estimation Noise in Focal Context") +
     geom_segment(
       aes(x = .001, y = 0.001, xend = 1, yend = 1 / sqrt(3 - (1/2))), linetype = "dashed"
     ) +
     annotate("text", x = .425, y = .65, label = "additive better", size = 5.5) +
     annotate("text", x = .75, y = .15, label = "GxE better", size = 5.5) +
-    theme(plot.title = element_text(hjust = 0.5)) +
+    theme(plot.title = element_text(hjust = 0.5, size = 11)) +
     labs(fill="MSE Difference\n(additive - GxE)") +
     theme(aspect.ratio=1, legend.title=element_text(size=14))
   
@@ -204,13 +204,13 @@ generate_multi_ratio_plot <- function() {
                          labels = seq(-.65, .25, .15)) +
     ylab("Ratio of Environmental Standard Errors") +
     xlab("Difference in Environment Specific Effects (au)") +
-    ggtitle("Environmental Noise Ratio = 0.5") +
+    ggtitle("Lower Estimation Noise in Focal Context") +
     geom_segment(
       aes(x = .001, y = 0.001, xend = 1, yend = 1 / sqrt(3 - (1/.5))), linetype = "dashed"
     ) +
     annotate("text", x = .35, y = .7, label = "additive better", size = 5.5) +
     annotate("text", x = .75, y = .15, label = "GxE better", size = 5.5) +
-    theme(plot.title = element_text(hjust = 0.5)) +
+    theme(plot.title = element_text(hjust = 0.5, size = 11)) +
     labs(fill="MSE Difference\n(additive - GxE)") +
     theme(aspect.ratio=1, legend.title=element_text(size=14))
   
@@ -353,13 +353,13 @@ fig <- ggarrange(
   vjust = .1
 )
 
-#png(file = "~/Documents/paper_gwas_amplification/images/fig1.png", width = 4000, height = 1350, res = 300)
+png(file = "~/Documents/paper_gwas_amplification/images/fig1.png", width = 4000, height = 1350, res = 300)
 annotate_figure(fig,
                  left = textGrob("Context Specific Estimation Noise (a.u.)", rot = 90, vjust = 1, gp = gpar(cex = 1, fontsize = 14)),
                  bottom = textGrob("Difference in Context Specific Effects (a.u.)", gp = gpar(cex = 1, fontsize = 14), hjust = .575),
                  top = textGrob("MSE Difference in the Case of Context Specific Noise", gp = gpar(cex = 1, fontsize = 15), hjust = .625, vjust = 2)
                 )
-#dev.off()
+dev.off()
 
 # fig2 <- ggarrange(
 #   plot1$bias_plot + rremove("ylab") + rremove("xlab"),

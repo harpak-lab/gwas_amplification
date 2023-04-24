@@ -788,9 +788,27 @@ simulate_pgs_corr_fast <- function(
 
     if ("mash" %in% beta_methods || "mash" %in% selection_methods) {
 
-      mash_model <- get_test_preds_mash(
-        Bhat, Shat, test_df, amp_range = c(1.5, 2, 3)
+      skip_to_next <- FALSE
+      
+      tryCatch(
+        {
+          
+          mash_model <- get_test_preds_mash(
+            Bhat, Shat, test_df, amp_range = c(1.5, 2, 3)
+          )
+          
+        }, error = function(cond) {
+          
+          skip_to_next <<- TRUE
+          
+        }
       )
+      
+      if(skip_to_next) {
+        
+        next
+        
+      }
       
       beta_ests[['mash']] <- matrix(
         data = c(mash_model$est_e0, mash_model$est_e1),
@@ -815,8 +833,29 @@ simulate_pgs_corr_fast <- function(
     
     if ("ash_additive" %in% beta_methods) {
       
-      ash_model_add <- ashr::ash(additive_models$est, additive_models$sd)
-      post_ests_add <- ashr::get_pm(ash_model_add)
+      skip_to_next <- FALSE
+      
+      tryCatch(
+        
+        {
+          
+          ash_model_add <- ashr::ash(additive_models$est, additive_models$sd)
+          post_ests_add <- ashr::get_pm(ash_model_add)
+          
+        }, error = function(cond) {
+          
+          skip_to_next <<- TRUE
+          
+        }
+        
+      )
+      
+      if(skip_to_next) {
+        
+        next
+        
+      }
+      
       beta_ests[['ash_additive']] <- matrix(
         data = rep(post_ests_add, 2), ncol = 2
       )
@@ -825,11 +864,29 @@ simulate_pgs_corr_fast <- function(
     
     if ("ash_GxE" %in% beta_methods) {
       
-      ash_model_GxE_e0 <- ashr::ash(GxE_models$est_e0, GxE_models$sd_e0)
-      post_ests_GxE_e0 <- ashr::get_pm(ash_model_GxE_e0)
+      skip_to_next <- FALSE
       
-      ash_model_GxE_e1 <- ashr::ash(GxE_models$est_e1, GxE_models$sd_e1)
-      post_ests_GxE_e1 <- ashr::get_pm(ash_model_GxE_e1)
+      tryCatch(
+        {
+          
+          ash_model_GxE_e0 <- ashr::ash(GxE_models$est_e0, GxE_models$sd_e0)
+          post_ests_GxE_e0 <- ashr::get_pm(ash_model_GxE_e0)
+          
+          ash_model_GxE_e1 <- ashr::ash(GxE_models$est_e1, GxE_models$sd_e1)
+          post_ests_GxE_e1 <- ashr::get_pm(ash_model_GxE_e1)
+          
+        }, error = function(cond) {
+          
+          skip_to_next <<- TRUE
+          
+        }
+      )
+      
+      if(skip_to_next) {
+        
+        next
+        
+      }
       
       beta_ests[['ash_GxE']] <- matrix(
         data = c(post_ests_GxE_e0, post_ests_GxE_e1), ncol = 2

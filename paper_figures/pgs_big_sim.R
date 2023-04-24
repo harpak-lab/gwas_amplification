@@ -29,7 +29,7 @@ Sigma[[2]] <- (1 / amp_coef) * gamp:::make_amp_cov_mat(
 
 maf_simulator <- function(n) {
   
-  pmax(pmin(rbeta(n, .5, 10), .5 - 1e-05), 5e-3)
+  .5 * rbeta(n, 1, 5)
   
 }
 
