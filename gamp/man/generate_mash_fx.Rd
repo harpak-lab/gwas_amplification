@@ -4,7 +4,7 @@
 \alias{generate_mash_fx}
 \title{Generate Data from Mash Model}
 \usage{
-generate_mash_fx(n, p, Sigma, pi, s, t_dist = F, mu = NULL)
+generate_mash_fx(n, p, Sigma, pi, s, mu = NULL)
 }
 \arguments{
 \item{n}{number of samples}

@@ -10,7 +10,7 @@
 #' @export
 #'
 #' @examples
-generate_mash_fx <- function(n, p, Sigma, pi, s, t_dist = F, mu = NULL) {
+generate_mash_fx <- function(n, p, Sigma, pi, s, mu = NULL) {
 
   if (is.null(pi)) {
     pi = rep(1, length(Sigma)) # default to uniform distribution
@@ -27,81 +27,26 @@ generate_mash_fx <- function(n, p, Sigma, pi, s, t_dist = F, mu = NULL) {
   X <- matrix(0, n, p+1)
   for (i in nonnull_fx) {
 
-    if(t_dist) {
-
-      X[i,] <- mvtnorm::rmvt(1, Sigma[[which_sigma[i]]], 1)
-
-    } else {
-
-      if(is.null(mu)) {
-        
-        X[i,] <- c(
-          MASS::mvrnorm(
-            1, rep(0, p), Sigma[[which_sigma[i]]]), which_sigma[i]
-          )
-        
-      } else {
-        
-        X[i,] <- c(
-          MASS::mvrnorm(
-            1, mu[[which_sigma[i]]], Sigma[[which_sigma[i]]]), which_sigma[i]
-        )
-        
-      }
+    if(is.null(mu)) {
       
-
+      X[i,] <- c(
+        MASS::mvrnorm(
+          1, rep(0, p), Sigma[[which_sigma[i]]]), which_sigma[i]
+        )
+      
+    } else {
+      
+      X[i,] <- c(
+        MASS::mvrnorm(
+          1, mu[[which_sigma[i]]], Sigma[[which_sigma[i]]]), which_sigma[i]
+      )
+      
     }
 
   }
 
   return(X)
 
-}
-
-#' Generate Data from Mash Model
-#'
-#' @param n number of samples
-#' @param p number of conditions
-#' @param Sigma list of covariance matrices
-#' @param pi probability of sampling from each covariance matrix
-#' @param s percent of the signals to be 0 for all conditions
-#'
-#' @return Matrix of true effects X
-#' @export
-#'
-#' @examples
-generate_mash_fx_par <- function(n, p, Sigma, pi, s) {
-  
-  if (is.null(pi)) {
-    pi = rep(1, length(Sigma)) # default to uniform distribution
-  }
-  assertthat::are_equal(length(pi), length(Sigma))
-  for (j in length(Sigma)) {
-    assertthat::are_equal(dim(Sigma[j]), c(p, p))
-  }
-  
-  pi <- pi / sum(pi) # normalize pi to sum to one
-  nonnull_fx <- floor((1 - s)*n)
-  which_sigma <- sample(1:length(pi), nonnull_fx, replace=TRUE, prob=pi)
-  
-  null_fx <- n - nonnull_fx
-  X_null <- matrix(
-    data = 0, nrow = null_fx, ncol = p
-  )
-  
-  X_nonnull <- foreach::foreach(
-    i = 1:nonnull_fx,
-    .combine = 'rbind'
-  ) %dopar% {
-    
-    MASS::mvrnorm(1, rep(0, p), Sigma[[which_sigma[i]]])
-    
-  }
-  
-  X <- rbind(X_null, X_nonnull)
-  
-  return(X)
-  
 }
 
 #' Create 2x2 covariance matrices with optional levels of amplification
