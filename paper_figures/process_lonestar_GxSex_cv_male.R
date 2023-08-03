@@ -254,6 +254,16 @@ make_crossval_plot_female <- function(data_dir, trait) {
   
 }
 
+testosterone_info_top_hits <- make_dec_rule_male_df(
+  data_dir = "/Users/ericweine/Documents/gwas_amplification/paper_figures/gxsex_cv_results",
+  trait = "testosterone",
+  n = 147477,
+  m = 143937,
+  n_samp = 100000,
+  pval_thresh = 5e-8, n_ld_samp = 1, n_repeat_ld_samps = 10
+)
+
+
 library(ggplot2)
 
 igf1_info <- make_dec_rule_male_df(
@@ -294,7 +304,7 @@ g_igf1_top_hits <- ggplot(data = igf1_info_top_hits$cv_df, aes(x = fx_diff, y = 
   geom_segment(aes(x = 0, y = 0, xend = .2, yend = .2 * igf1_info$slope), linetype = "dashed") +
   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
         panel.background = element_blank(), axis.line = element_line(colour = "black"),
-        plot.title = element_text(hjust = 0.5, size = 14), axis.title = element_text(size = 11)) +
+        plot.title = element_text(hjust = 0.5, size = 14), axis.title = element_text(size = 8)) +
   xlab("Difference in Environment Specific Effects (nmol/L)") +
   ylab("Standard Error (nmol/L)") +
   xlim(0, .2) +
@@ -854,14 +864,6 @@ testosterone_info <- make_dec_rule_male_df(
   n_ld_samp = 10
 )
 
-testosterone_info_top_hits <- make_dec_rule_male_df(
-  data_dir = "/Users/ericweine/Documents/gwas_amplification/paper_figures/gxsex_cv_results",
-  trait = "testosterone",
-  n = 147477,
-  m = 143937,
-  n_samp = 100000,
-  pval_thresh = 5e-8, n_ld_samp = 1, n_repeat_ld_samps = 10
-)
 
 g_testosterone <- ggplot(data = testosterone_info$cv_df, aes(x = fx_diff, y = se_m)) +
   geom_point(alpha = .15, color = "orange", size = 1) +

@@ -298,7 +298,7 @@ real_data_plot <- ggplot(data = summary_table_samp, aes(x = coef_CTRL, y = coef_
   geom_point(alpha = .1) +
   xlab("Effect Estimate in Control Group") +
   ylab("Effect Estimate in High Sugar Group") +
-  ggtitle("Genetic Effect on\nLongevity in Flies (Pallares et al., 2023)") +
+  ggtitle("Genetic Effects on\nLongevity in Flies (Pallares et al., 2023)") +
   theme(
     plot.title = element_text(hjust = 0.5),
     panel.grid.major = element_blank(), 

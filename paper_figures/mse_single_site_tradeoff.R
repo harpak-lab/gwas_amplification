@@ -54,8 +54,8 @@ generate_mse_tradeoff_single_site_plot <- function(
       aes(x = .015, y = 0.015, xend = 1, yend = 1 * slope), linetype = "dashed"
     )  +
     labs(fill="Difference") +
-    annotate("text", x = .4, y = .7, label = "additive better", size = 5.5) +
-    annotate("text", x = .75, y = .15, label = "GxE better", size = 5.5) +
+    annotate("text", x = .4, y = .7, label = "additive better", size = 7) +
+    annotate("text", x = .75, y = .15, label = "GxE better", size = 7) +
     scale_fill_gradient2(limits = color_scale_limits) +
     theme(
       plot.title = element_text(hjust = 0.5, size = 14), 
@@ -73,10 +73,10 @@ generate_mse_tradeoff_single_site_plot <- function(
     xlab("Difference in Environment Specific Effects") +
     ggtitle(latex2exp::TeX("Bias")) +
     labs(fill="Difference") +
-    annotate("text", x = .165, y = .55, label = "equal", size = 5.5) +
-    annotate("text", x = .165, y = .45, label = "bias", size = 5.5) +
-    annotate("text", x = .725, y = .55, label = "higher bias", size = 5.5) +
-    annotate("text", x = .725, y = .45, label = "with additive", size = 5.5) +
+    annotate("text", x = .165, y = .55, label = "equal", size = 7) +
+    annotate("text", x = .165, y = .45, label = "bias", size = 7) +
+    annotate("text", x = .725, y = .55, label = "higher bias", size = 7) +
+    annotate("text", x = .725, y = .45, label = "with additive", size = 7) +
     geom_segment(aes(x = .575, y = .325, xend = .925, yend = .325),
                  arrow = arrow(length = unit(0.5, "cm"))) +
     scale_fill_gradient2(limits = color_scale_limits) +
@@ -94,8 +94,8 @@ generate_mse_tradeoff_single_site_plot <- function(
     xlab("Difference in Environment Specific Effects") +
     ggtitle("Variance") +
     labs(fill="Difference") +
-    annotate("text", x = .5, y = .75, label = "higher variance", size = 5.5) +
-    annotate("text", x = .5, y = .65, label = "with GxE", size = 5.5) +
+    annotate("text", x = .5, y = .75, label = "higher variance", size = 7) +
+    annotate("text", x = .5, y = .65, label = "with GxE", size = 7) +
     annotate("text", x = .5, y = .1,
              label = "equal variance", size = 5.5) +
     geom_segment(aes(x = .09, y = .55, xend = .09, yend = .8),
@@ -353,7 +353,7 @@ fig <- ggarrange(
   vjust = .1
 )
 
-png(file = "~/Documents/paper_gwas_amplification/images/fig1.png", width = 4000, height = 1350, res = 300)
+#png(file = "~/Documents/paper_gwas_amplification/images/fig1.png", width = 4000, height = 1350, res = 300)
 annotate_figure(fig,
                  left = textGrob("Context Specific Estimation Noise (a.u.)", rot = 90, vjust = 1, gp = gpar(cex = 1, fontsize = 14)),
                  bottom = textGrob("Difference in Context Specific Effects (a.u.)", gp = gpar(cex = 1, fontsize = 14), hjust = .575),

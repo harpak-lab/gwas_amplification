@@ -1,7 +1,13 @@
 # here, I want to process the polygenic score simulations
 # first, I want to recall what one object looks like
 
-num_replicates <- 22
+close <- function(x,y) {
+  
+  dplyr::between(x, y - 1e-5, y + 1e-5)
+  
+}
+
+num_replicates <- 33
 amp_perc_vec <- c()
 replicate_vec <- c()
 selection_method_vec <- c()
@@ -12,20 +18,27 @@ for (amp_perc in seq(0, 1, .1)) {
   
   for (replicate in 1:num_replicates) {
     
-    sim <- readr::read_rds(
-      glue::glue("pgs_sim_res/pgs_sim_n_1000_n_snps_5000_h2_0.4_amp_coef_1.5",
-                 "_amp_perc_{amp_perc}_n_sims_1300_replicate_{replicate}_fixed_asc_snps.rds")
-    )
+    print(amp_perc)
+    print(replicate)
     
-    for (selection_method in c("additive", "GxE")) {
+    if (TRUE) {
       
-      for (beta_method in c("additive", "GxE")) {
+      sim <- readr::read_rds(
+        glue::glue("pgs_sim_res/pgs_sim_n_1000_n_snps_5000_h2_0.4_amp_coef_1.4",
+                   "_amp_perc_{amp_perc}_n_sims_1000_replicate_{replicate}_n_ascertained_one_third_ashr.rds")
+      )
+      
+      for (selection_method in c("additive", "GxE")) {
         
-        amp_perc_vec <- c(amp_perc_vec, amp_perc)
-        replicate_vec <- c(replicate_vec, replicate)
-        selection_method_vec <- c(selection_method_vec, selection_method)
-        beta_method_vec <- c(beta_method_vec, beta_method)
-        corr_vec <- c(corr_vec, sim[[selection_method]][[beta_method]][["corr"]])
+        for (beta_method in c("ash_additive", "ash_GxE")) {
+          
+          amp_perc_vec <- c(amp_perc_vec, amp_perc)
+          replicate_vec <- c(replicate_vec, replicate)
+          selection_method_vec <- c(selection_method_vec, selection_method)
+          beta_method_vec <- c(beta_method_vec, beta_method)
+          corr_vec <- c(corr_vec, sim[[selection_method]][[beta_method]][["corr"]])
+          
+        }
         
       }
       
@@ -46,7 +59,7 @@ sim_df_low_p <- data.frame(
 # here, I want to process the polygenic score simulations
 # first, I want to recall what one object looks like
 
-num_replicates <- 22
+num_replicates <- 33
 amp_perc_vec <- c()
 replicate_vec <- c()
 selection_method_vec <- c()
@@ -58,13 +71,13 @@ for (amp_perc in seq(0, 1, .1)) {
   for (replicate in 1:num_replicates) {
     
     sim <- readr::read_rds(
-      glue::glue("pgs_sim_res/pgs_sim_n_50000_n_snps_5000_h2_0.4_amp_coef_1.5",
-                 "_amp_perc_{amp_perc}_n_sims_1300_replicate_{replicate}_fixed_asc_snps.rds")
+      glue::glue("pgs_sim_res/pgs_sim_n_50000_n_snps_5000_h2_0.4_amp_coef_1.4",
+                 "_amp_perc_{amp_perc}_n_sims_1000_replicate_{replicate}_n_ascertained_one_third_ashr.rds")
     )
     
     for (selection_method in c("additive", "GxE")) {
       
-      for (beta_method in c("additive", "GxE")) {
+      for (beta_method in c("ash_additive", "ash_GxE")) {
         
         amp_perc_vec <- c(amp_perc_vec, amp_perc)
         replicate_vec <- c(replicate_vec, replicate)
@@ -100,35 +113,27 @@ corr_vec <- c()
 for (amp_perc in seq(0, 1, .1)) {
   
   for (replicate in 1:num_replicates) {
-      
-    if (!(replicate == 16 && amp_perc == 0.4) && !(replicate == 24 && amp_perc == 0) &&
-        !(replicate == 26 && amp_perc == 0) && !(replicate == 29 && amp_perc == 0) &&
-        !(replicate == 31 && amp_perc == 0) && !(replicate == 32 && amp_perc == 0) &&
-        !(replicate == 33 && amp_perc == 0) && !(replicate == 24 && amp_perc == 0.1) &&
-        !(replicate == 30 && amp_perc == 0.1) && !(replicate == 31 && amp_perc == 0.1) &&
-        !(replicate == 25 && amp_perc == 0.2) && !(replicate == 26 && amp_perc == 0.2)
-        ){
     
-    sim <- readr::read_rds(
-        glue::glue("pgs_sim_res/pgs_sim_n_1000_n_snps_5000_h2_0.4_amp_coef_1.5",
-                   "_amp_perc_{amp_perc}_n_sims_100_replicate_{replicate}_fixed_asc_snps_mash.rds")
-      )
+    if (TRUE) {
       
-    
-    for (selection_method in c("mash")) {
+      sim <- readr::read_rds(
+        glue::glue("pgs_sim_res/pgs_sim_n_1000_n_snps_5000_h2_0.4_amp_coef_1.4",
+                   "_amp_perc_{amp_perc}_n_sims_450_replicate_{replicate}_n_ascertained_one_third_mash.rds"))
       
-      for (beta_method in c("mash")) {
+      for (selection_method in c("mash")) {
         
-        amp_perc_vec <- c(amp_perc_vec, amp_perc)
-        replicate_vec <- c(replicate_vec, replicate)
-        selection_method_vec <- c(selection_method_vec, selection_method)
-        beta_method_vec <- c(beta_method_vec, beta_method)
-        corr_vec <- c(corr_vec, sim[[selection_method]][[beta_method]][["corr"]])
+        for (beta_method in c("mash")) {
+          
+          amp_perc_vec <- c(amp_perc_vec, amp_perc)
+          replicate_vec <- c(replicate_vec, replicate)
+          selection_method_vec <- c(selection_method_vec, selection_method)
+          beta_method_vec <- c(beta_method_vec, beta_method)
+          corr_vec <- c(corr_vec, sim[[selection_method]][[beta_method]][["corr"]])
+          
+        }
         
       }
       
-    }
-    
     }
     
   }
@@ -154,12 +159,9 @@ for (amp_perc in seq(0, 1, .1)) {
   
   for (replicate in 1:num_replicates) {
     
-    if (!(replicate == 7 && amp_perc == 0.5)  && !(replicate == 3 && amp_perc == 1)) {
-    
     sim <- readr::read_rds(
-      glue::glue("pgs_sim_res/pgs_sim_n_50000_n_snps_5000_h2_0.4_amp_coef_1.5",
-                 "_amp_perc_{amp_perc}_n_sims_100_replicate_{replicate}_fixed_asc_snps_mash.rds")
-    )
+      glue::glue("pgs_sim_res/pgs_sim_n_50000_n_snps_5000_h2_0.4_amp_coef_1.4",
+                 "_amp_perc_{amp_perc}_n_sims_450_replicate_{replicate}_n_ascertained_one_third_mash.rds"))
     
     for (selection_method in c("mash")) {
       
@@ -172,8 +174,6 @@ for (amp_perc in seq(0, 1, .1)) {
         corr_vec <- c(corr_vec, sim[[selection_method]][[beta_method]][["corr"]])
         
       }
-      
-    }
     
     }
     
@@ -221,7 +221,7 @@ corr_df_high_p <- corr_df_high_p %>%
       beta_method
     )
   ) %>%
-  dplyr::filter(!(beta_method == "additive" & selection_method == "GxE p-value")) %>%
+  dplyr::filter(!(beta_method == "ash_additive" & selection_method == "GxE p-value")) %>%
   dplyr::mutate(comb_method = paste(beta_method, selection_method))
 
 corr_df_low_p <- corr_df_low_p %>%
@@ -238,7 +238,7 @@ corr_df_low_p <- corr_df_low_p %>%
       beta_method
     )
   ) %>%
-  dplyr::filter(!(beta_method == "additive" & selection_method == "GxE p-value")) %>%
+  dplyr::filter(!(beta_method == "ash_additive" & selection_method == "GxE p-value")) %>%
   dplyr::mutate(comb_method = paste(beta_method, selection_method))
 
 library(ggplot2)
@@ -257,19 +257,11 @@ g1 <- ggplot(data = corr_df_low_p) +
     axis.line = element_line(colour = "black"),
     legend.position = "none"
   ) +
-  scale_color_manual(values = c("blue", "magenta", "red", "green3")) +
-  annotate("text", x = .75, y = .275, label = "polygenic adaptive shrinkage", color = "green3", size = 3.5) +
-  geom_segment(aes(x = .75, y = .28, xend = .75, yend = .2995),
-               arrow = arrow(length = unit(0.5, "cm")), color = "green3") +
-  annotate("text", x = .85, y = .18, label = "GxE", color = "red", size = 3.5) +
-  geom_segment(aes(x = .85, y = .175, xend = .85, yend = .1575),
-               arrow = arrow(length = unit(0.5, "cm")), color = "red") +
-  annotate("text", x = .35, y = .165, label = "GxE; ascertainment based on additive model", color = "magenta", size = 3.5) +
-  geom_segment(aes(x = .35, y = .168, xend = .35, yend = .1925),
-               arrow = arrow(length = unit(0.5, "cm")), color = "magenta") +
-  annotate("text", x = .175, y = .255, label = "additive", color = "blue", size = 3.5) +
-  geom_segment(aes(x = .175, y = .25, xend = .175, yend = .225),
-               arrow = arrow(length = unit(0.5, "cm")), color = "blue")
+  scale_color_manual(values = c("red", "orange2", "green4", "blue")) +
+  annotate("text", x = .75, y = .25, label = "polygenic adaptive shrinkage", color = "blue", size = 5) +
+  annotate("text", x = .85, y = .21, label = "GxE", color = "green4", size = 5) +
+  annotate("text", x = .35, y = .18, label = "ascertainment based on additive model;\nGxE estimation", color = "orange2", size = 5) +
+  annotate("text", x = .175, y = .16, label = "additive", color = "red", size = 5) 
 
 g2 <- ggplot(data = corr_df_high_p) +
   geom_line(aes(x = amp_perc, y = mean_corr, color = comb_method), size = 1.25) +
@@ -285,19 +277,11 @@ g2 <- ggplot(data = corr_df_high_p) +
     axis.line = element_line(colour = "black"),
     legend.position = "none"
   ) +
-  scale_color_manual(values = c("blue", "magenta", "red", "green3")) +
-  annotate("text", x = .8, y = .595, label = "polygenic adaptive shrinkage", color = "green3", size = 3.5) +
-  geom_segment(aes(x = .8, y = .5955, xend = .8, yend = .60275),
-               arrow = arrow(length = unit(0.5, "cm")), color = "green3") +
-  annotate("text", x = .075, y = .592, label = "additive", color = "blue", size = 3.5) +
-  geom_segment(aes(x = .075, y = .593, xend = .075, yend = .599),
-               arrow = arrow(length = unit(0.5, "cm")), color = "blue") +
-  annotate("text", x = .05, y = .58, label = "GxE", color = "red", size = 3.5) +
-  geom_segment(aes(x = .05, y = .579, xend = .05, yend = .572),
-               arrow = arrow(length = unit(0.5, "cm")), color = "red") +
-  annotate("text", x = .53, y = .581, label = "GxE; ascertainment based on additive model", color = "magenta", size = 3.5) +
-  geom_segment(aes(x = .53, y = .582, xend = .53, yend = .5905),
-               arrow = arrow(length = unit(0.5, "cm")), color = "magenta")
+  scale_color_manual(values = c("red", "orange2", "green4", "blue")) +
+  annotate("text", x = .8, y = .58, label = "polygenic adaptive shrinkage", color = "blue", size = 5) +
+  annotate("text", x = .075, y = .575, label = "additive", color = "red", size = 5) +
+  annotate("text", x = .05, y = .57, label = "GxE", color = "green4", size = 5) +
+  annotate("text", x = .53, y = .565, label = "ascertainment based on additive model;\nGxE estimation", color = "orange2", size = 5)
   
 
 library(ggpubr)
@@ -307,13 +291,13 @@ fig4 <- ggarrange(
   g1 + rremove("ylab") + rremove("xlab"),
   g2 + rremove("ylab") + rremove("xlab"), 
   nrow = 1,
-  legend = "none",
-  labels = "AUTO"
+  labels = "AUTO",
+  legend = FALSE
 )
 
 annotate_figure(fig4, 
-                left = textGrob("Test Set PGS Correlation", rot = 90, vjust = 1, gp = gpar(cex = 1, fontsize = 12)),
-                bottom = textGrob("Percent of Variant Effects Amplified 1.5x", gp = gpar(cex = 1, fontsize = 12), hjust = .45))
+                left = textGrob("Prediction Accuracy\n(correlation between polygenic score and trait value)", rot = 90, vjust = 1, gp = gpar(cex = 1, fontsize = 12)),
+                bottom = textGrob("Percent of Variant Effects Amplified 1.4x", gp = gpar(cex = 1, fontsize = 12), hjust = .45))
 
 
 
